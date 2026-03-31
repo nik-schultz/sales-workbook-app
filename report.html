@@ -13,7 +13,7 @@
       color: #1f2937;
     }
     .wrap {
-      max-width: 1200px;
+      max-width: 1400px;
       margin: 0 auto;
     }
     .card {
@@ -44,19 +44,69 @@
       font-size: 26px;
       font-weight: 700;
     }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .meta-item {
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 14px;
+    }
+    .meta-label {
+      font-size: 12px;
+      color: #6b7280;
+      margin-bottom: 6px;
+    }
+    .meta-value {
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .toolbar input {
+      min-width: 260px;
+      padding: 10px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    .toolbar select {
+      padding: 10px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+      background: white;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 900px;
+      min-width: 1600px;
     }
     th, td {
       padding: 10px 12px;
       border-bottom: 1px solid #e5e7eb;
       text-align: left;
       font-size: 14px;
+      vertical-align: top;
     }
     th {
       background: #d9eaf7;
+      cursor: pointer;
+      user-select: none;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    th:hover {
+      background: #c9dfef;
     }
     .table-wrap {
       overflow-x: auto;
@@ -69,18 +119,38 @@
       background: #ffc7ce;
       color: #9c0006;
     }
+    .sort-indicator {
+      margin-left: 6px;
+      font-size: 12px;
+      color: #374151;
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
       <h1>Saved Sales Report</h1>
-      <p id="meta"></p>
+      <div id="metaGrid" class="meta-grid"></div>
     </div>
 
     <div id="summaryGrid" class="summary-grid"></div>
 
     <div class="card">
+      <div class="toolbar">
+        <input id="searchBox" type="text" placeholder="Search client, city, management company, note..." />
+        <select id="statusFilter">
+          <option value="">All Statuses</option>
+          <option value="No Activity">No Activity</option>
+          <option value="Stale">Stale</option>
+          <option value="Fresh">Fresh</option>
+        </select>
+        <select id="boomerangFilter">
+          <option value="">All Boomerang</option>
+          <option value="Yes">Boomerang = Yes</option>
+          <option value="No">Boomerang = No</option>
+        </select>
+      </div>
+
       <div class="table-wrap">
         <table id="reportTable">
           <thead></thead>
@@ -91,10 +161,68 @@
   </div>
 
   <script>
+    let allRows = [];
+    let sortKey = 'default_order';
+    let sortDir = 'asc';
+
+    const columns = [
+      { key: 'client_name', label: 'Client Name' },
+      { key: 'address', label: 'Address' },
+      { key: 'city', label: 'City' },
+      { key: 'state', label: 'State' },
+      { key: 'zip', label: 'ZIP' },
+      { key: 'phone', label: 'Phone #' },
+      { key: 'units', label: 'Units' },
+      { key: 'current_manager', label: 'Current Manager' },
+      { key: 'management_company', label: 'Management Company' },
+      { key: 'customer_name', label: 'CustomerName' },
+      { key: 'action_type', label: 'ActionType' },
+      { key: 'last_marketed_date', label: 'Last Marketed Date' },
+      { key: 'last_note', label: 'Last Note' },
+      { key: 'status', label: 'Status' },
+      { key: 'days_since_last_touch', label: 'Days Since Last Touch' },
+      { key: 'boomerang', label: 'Boomerang' },
+      { key: 'boom_sales_rep', label: 'Boom SalesRep' },
+      { key: 'boom_2025_rev', label: 'Boom 2025 Rev' },
+      { key: 'boom_2026_rev', label: 'Boom 2026 Rev' }
+    ];
+
+    function getStatusPriority(status) {
+      if (status === 'No Activity') return 0;
+      if (status === 'Stale') return 1;
+      if (status === 'Fresh') return 2;
+      return 99;
+    }
+
     function getStatusRowClass(row) {
       if (row.status === 'Fresh') return 'fresh-row';
       if (row.status === 'Stale') return 'stale-row';
       return '';
+    }
+
+    function money(v) {
+      return `$${Number(v || 0).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })}`;
+    }
+
+    function renderMeta(run) {
+      const grid = document.getElementById('metaGrid');
+      grid.innerHTML = `
+        <div class="meta-item">
+          <div class="meta-label">Branch</div>
+          <div class="meta-value">${run.branch_name || run.branch_code || ''}</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">Branch Code</div>
+          <div class="meta-value">${run.branch_code || ''}</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">Run ID</div>
+          <div class="meta-value" style="font-size:14px; word-break:break-all;">${run.id}</div>
+        </div>
+      `;
     }
 
     function renderSummary(summary) {
@@ -115,32 +243,118 @@
       `).join('');
     }
 
-    function renderTable(rows) {
+    function getFilteredRows() {
+      const search = document.getElementById('searchBox').value.trim().toLowerCase();
+      const statusFilter = document.getElementById('statusFilter').value;
+      const boomerangFilter = document.getElementById('boomerangFilter').value;
+
+      let rows = [...allRows];
+
+      if (search) {
+        rows = rows.filter(row => {
+          return [
+            row.client_name,
+            row.address,
+            row.city,
+            row.state,
+            row.management_company,
+            row.current_manager,
+            row.last_note,
+            row.customer_name
+          ].some(v => String(v || '').toLowerCase().includes(search));
+        });
+      }
+
+      if (statusFilter) {
+        rows = rows.filter(row => row.status === statusFilter);
+      }
+
+      if (boomerangFilter) {
+        rows = rows.filter(row => row.boomerang === boomerangFilter);
+      }
+
+      if (sortKey === 'default_order') {
+        rows.sort((a, b) => {
+          const statusDiff = getStatusPriority(a.status) - getStatusPriority(b.status);
+          if (statusDiff !== 0) return statusDiff;
+          return Number(b.units || 0) - Number(a.units || 0);
+        });
+      } else {
+        rows.sort((a, b) => {
+          const av = a[sortKey];
+          const bv = b[sortKey];
+
+          const aNum = Number(av);
+          const bNum = Number(bv);
+          const bothNumbers = !Number.isNaN(aNum) && !Number.isNaN(bNum) && av !== '' && bv !== '';
+
+          let result = 0;
+
+          if (bothNumbers) {
+            result = aNum - bNum;
+          } else {
+            result = String(av || '').localeCompare(String(bv || ''));
+          }
+
+          return sortDir === 'asc' ? result : -result;
+        });
+      }
+
+      return rows;
+    }
+
+    function renderTable() {
+      const rows = getFilteredRows();
       const table = document.getElementById('reportTable');
       const thead = table.querySelector('thead');
       const tbody = table.querySelector('tbody');
 
-      const columns = [
-        { key: 'client_name', label: 'Client Name' },
-        { key: 'city', label: 'City' },
-        { key: 'state', label: 'State' },
-        { key: 'units', label: 'Units' },
-        { key: 'last_marketed_date', label: 'Last Marketed Date' },
-        { key: 'days_since_last_touch', label: 'Days Since Last Touch' },
-        { key: 'status', label: 'Status' },
-        { key: 'boomerang', label: 'Boomerang' },
-        { key: 'boom_sales_rep', label: 'Boom Sales Rep' },
-        { key: 'boom_2025_rev', label: 'Boom 2025 Rev' },
-        { key: 'boom_2026_rev', label: 'Boom 2026 Rev' }
-      ];
-
-      thead.innerHTML = '<tr>' + columns.map(col => `<th>${col.label}</th>`).join('') + '</tr>';
+      thead.innerHTML = `
+        <tr>
+          ${columns.map(col => {
+            const indicator =
+              sortKey === col.key ? `<span class="sort-indicator">${sortDir === 'asc' ? '▲' : '▼'}</span>` : '';
+            return `<th data-key="${col.key}">${col.label}${indicator}</th>`;
+          }).join('')}
+        </tr>
+      `;
 
       tbody.innerHTML = rows.map(row => `
         <tr class="${getStatusRowClass(row)}">
-          ${columns.map(col => `<td>${row[col.key] ?? ''}</td>`).join('')}
+          <td>${row.client_name ?? ''}</td>
+          <td>${row.address ?? ''}</td>
+          <td>${row.city ?? ''}</td>
+          <td>${row.state ?? ''}</td>
+          <td>${row.zip ?? ''}</td>
+          <td>${row.phone ?? ''}</td>
+          <td>${row.units ?? ''}</td>
+          <td>${row.current_manager ?? ''}</td>
+          <td>${row.management_company ?? ''}</td>
+          <td>${row.customer_name ?? ''}</td>
+          <td>${row.action_type ?? ''}</td>
+          <td>${row.last_marketed_date ?? ''}</td>
+          <td>${row.last_note ?? ''}</td>
+          <td>${row.status ?? ''}</td>
+          <td>${row.days_since_last_touch ?? ''}</td>
+          <td>${row.boomerang ?? ''}</td>
+          <td>${row.boom_sales_rep ?? ''}</td>
+          <td>${money(row.boom_2025_rev)}</td>
+          <td>${money(row.boom_2026_rev)}</td>
         </tr>
       `).join('');
+
+      thead.querySelectorAll('th').forEach(th => {
+        th.addEventListener('click', () => {
+          const key = th.dataset.key;
+          if (sortKey === key) {
+            sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+          } else {
+            sortKey = key;
+            sortDir = 'asc';
+          }
+          renderTable();
+        });
+      });
     }
 
     async function loadReport() {
@@ -160,9 +374,14 @@
         return;
       }
 
-      document.getElementById('meta').textContent = `Run ID: ${runId}`;
+      renderMeta(data.run);
       renderSummary(data.summary);
-      renderTable(data.rows);
+      allRows = data.rows || [];
+      renderTable();
+
+      document.getElementById('searchBox').addEventListener('input', renderTable);
+      document.getElementById('statusFilter').addEventListener('change', renderTable);
+      document.getElementById('boomerangFilter').addEventListener('change', renderTable);
     }
 
     loadReport();
