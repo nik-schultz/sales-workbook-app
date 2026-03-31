@@ -59,6 +59,7 @@
       white-space: pre-wrap;
       font-family: monospace;
       font-size: 14px;
+      overflow-x: auto;
     }
     .row {
       display: grid;
@@ -149,378 +150,365 @@
   </div>
 
   <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
-<script>
-  const createRunBtn = document.getElementById('createRunBtn');
-  const branch = document.getElementById('branch');
-  const createdBy = document.getElementById('createdBy');
-  const result = document.getElementById('result');
+  <script>
+    const createRunBtn = document.getElementById('createRunBtn');
+    const branch = document.getElementById('branch');
+    const createdBy = document.getElementById('createdBy');
+    const result = document.getElementById('result');
 
-  const clientFiles = document.getElementById('clientFiles');
-  const marketingFiles = document.getElementById('marketingFiles');
-  const boomerangFiles = document.getElementById('boomerangFiles');
+    const clientFiles = document.getElementById('clientFiles');
+    const marketingFiles = document.getElementById('marketingFiles');
+    const boomerangFiles = document.getElementById('boomerangFiles');
 
-  const clientFilesList = document.getElementById('clientFilesList');
-  const marketingFilesList = document.getElementById('marketingFilesList');
-  const boomerangFilesList = document.getElementById('boomerangFilesList');
+    const clientFilesList = document.getElementById('clientFilesList');
+    const marketingFilesList = document.getElementById('marketingFilesList');
+    const boomerangFilesList = document.getElementById('boomerangFilesList');
 
-  let currentRunId = null;
+    let currentRunId = null;
 
-  function renderFileList(input, target) {
-    const files = Array.from(input.files || []);
-    if (!files.length) {
-      target.className = 'file-list muted';
-      target.textContent = 'No files selected';
-      return;
-    }
-
-    target.className = 'file-list';
-    target.innerHTML = files
-      .map(file => `<div>${file.name} <span class="muted">(${Math.round(file.size / 1024)} KB)</span></div>`)
-      .join('');
-  }
-
-  function normalizeText(value) {
-    return String(value || '')
-      .trim()
-      .replace(/\s+/g, ' ')
-      .toLowerCase();
-  }
-
-  function normalizeName(value) {
-    return normalizeText(value)
-      .replace(/[^\w\s]/g, '')
-      .replace(/\b(apartments|apartment|apts|apt|homes|townhomes|townhome|village|villas|the|at|community|communities|residences)\b/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-
-  function toNumber(value) {
-    if (value === null || value === undefined || value === '') return 0;
-    const num = Number(String(value).replace(/[$,]/g, '').trim());
-    return Number.isFinite(num) ? num : 0;
-  }
-
-  function parseDate(value) {
-  if (value === null || value === undefined || value === '') return null;
-
-  if (typeof value === 'number') {
-    const parsed = XLSX.SSF.parse_date_code(value);
-    if (parsed) {
-      return new Date(parsed.y, parsed.m - 1, parsed.d);
-    }
-  }
-
-  const numericValue = Number(value);
-  if (!Number.isNaN(numericValue) && String(value).trim() !== '') {
-    const parsed = XLSX.SSF.parse_date_code(numericValue);
-    if (parsed) {
-      return new Date(parsed.y, parsed.m - 1, parsed.d);
-    }
-  }
-
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
-  function formatDate(date) {
-    if (!date) return '';
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const dd = String(date.getDate()).padStart(2, '0');
-    const yyyy = date.getFullYear();
-    return `${mm}/${dd}/${yyyy}`;
-  }
-
-  function daysSince(date) {
-    if (!date) return null;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const copy = new Date(date);
-    copy.setHours(0, 0, 0, 0);
-    const diff = today - copy;
-    return Math.floor(diff / (1000 * 60 * 60 * 24));
-  }
-
-  async function readExcelRows(file) {
-    const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer, { type: 'array' });
-
-    const allRows = [];
-
-    workbook.SheetNames.forEach(sheetName => {
-      const sheet = workbook.Sheets[sheetName];
-      const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-      rows.forEach(row => {
-        allRows.push({
-          __sheet_name: sheetName,
-          ...row
-        });
-      });
-    });
-
-    return allRows;
-  }
-
-  async function readFilesFromInput(input) {
-    const files = Array.from(input.files || []);
-    const allRows = [];
-
-    for (const file of files) {
-      const rows = await readExcelRows(file);
-      rows.forEach(row => {
-        allRows.push({
-          __file_name: file.name,
-          ...row
-        });
-      });
-    }
-
-    return allRows;
-  }
-
-  function buildMarketingMap(marketingRows) {
-    const map = new Map();
-
-    for (const row of marketingRows) {
-      const rawName = String(row.CustomerName || '').trim();
-      const key = normalizeName(rawName);
-      if (!key) continue;
-
-      const rowDate = parseDate(row.Date);
-      const subject = String(row.Subject || '').trim();
-      const actionType = String(row.ActionType || '').trim();
-
-      if (!map.has(key)) {
-        map.set(key, {
-          rawNames: new Set(rawName ? [rawName] : []),
-          lastDate: rowDate,
-          subjects: new Set(subject ? [subject] : []),
-          actionTypes: new Set(actionType ? [actionType] : [])
-        });
-        continue;
-      }
-
-      const existing = map.get(key);
-      if (rawName) existing.rawNames.add(rawName);
-
-      if (rowDate && (!existing.lastDate || rowDate > existing.lastDate)) {
-        existing.lastDate = rowDate;
-        existing.subjects = new Set(subject ? [subject] : []);
-        existing.actionTypes = new Set(actionType ? [actionType] : []);
-      } else if (
-        rowDate &&
-        existing.lastDate &&
-        rowDate.getTime() === existing.lastDate.getTime()
-      ) {
-        if (subject) existing.subjects.add(subject);
-        if (actionType) existing.actionTypes.add(actionType);
-      }
-    }
-
-    return map;
-  }
-
-  function buildBoomerangMap(boomerangRows) {
-    const map = new Map();
-
-    for (const row of boomerangRows) {
-      const rawName = String(row.CustomerName || '').trim();
-      const key = normalizeName(rawName);
-      if (!key) continue;
-
-      if (!map.has(key)) {
-        map.set(key, {
-          rawNames: new Set(rawName ? [rawName] : []),
-          salesReps: new Set(),
-          rev2025: 0,
-          rev2026: 0
-        });
-      }
-
-      const entry = map.get(key);
-      if (rawName) entry.rawNames.add(rawName);
-      if (row.SalesRep) entry.salesReps.add(String(row.SalesRep).trim());
-      entry.rev2025 += toNumber(row['2025']);
-      entry.rev2026 += toNumber(row['2026']);
-    }
-
-    return map;
-  }
-
-  function buildClientPreview(clientRows, marketingMap, boomerangMap) {
-    return clientRows.map(row => {
-      const clientName = row['Property Name'] || '';
-      const key = normalizeName(clientName);
-
-      const marketing = marketingMap.get(key);
-      const boom = boomerangMap.get(key);
-
-      const lastDate = marketing?.lastDate || null;
-      const touchDays = daysSince(lastDate);
-
-      let status = 'No Activity';
-      if (touchDays !== null) {
-        status = touchDays <= 90 ? 'Fresh' : 'Stale';
-      }
-
-      return {
-        client_name: clientName,
-        normalized_name: key,
-        address: row['Address'] || '',
-        city: row['City'] || '',
-        state: row['State'] || '',
-        zip: row['ZIP'] || '',
-        phone: row['Phone #'] || '',
-        units: toNumber(row['# of Units']),
-        current_manager: row['Current Manager'] || '',
-        management_company: row['Management Company'] || '',
-        customer_name: clientName,
-        action_type: marketing ? Array.from(marketing.actionTypes).join(' | ') : '',
-        last_marketed_date: formatDate(lastDate),
-        last_note: marketing ? Array.from(marketing.subjects).join(' | ') : '',
-        status,
-        days_since_last_touch: touchDays,
-        boomerang: boom ? 'Yes' : 'No',
-        boom_sales_rep: boom ? Array.from(boom.salesReps).join(' | ') : '',
-        boom_2025_rev: boom ? boom.rev2025 : 0,
-        boom_2026_rev: boom ? boom.rev2026 : 0
-      };
-    });
-  }
-
-  function buildDiagnostics(clientRows, marketingMap, boomerangMap) {
-  const clientKeySet = new Set(
-    clientRows
-      .map(row => normalizeName(row['Property Name']))
-      .filter(Boolean)
-  );
-
-  const unmatchedMarketing = [];
-  for (const [key, value] of marketingMap.entries()) {
-    if (!clientKeySet.has(key)) {
-      unmatchedMarketing.push({
-        normalized_name: key,
-        raw_names: Array.from(value.rawNames).join(' | '),
-        last_marketed_date: formatDate(value.lastDate),
-        action_type: Array.from(value.actionTypes).join(' | '),
-        subject: Array.from(value.subjects).join(' | ')
-      });
-    }
-  }
-
-  const unmatchedBoomerang = [];
-  for (const [key, value] of boomerangMap.entries()) {
-    if (!clientKeySet.has(key)) {
-      unmatchedBoomerang.push({
-        normalized_name: key,
-        raw_names: Array.from(value.rawNames).join(' | '),
-        sales_rep: Array.from(value.salesReps).join(' | '),
-        rev_2025: value.rev2025,
-        rev_2026: value.rev2026
-      });
-    }
-  }
-
-  return {
-    unmatched_marketing_first_25: unmatchedMarketing.slice(0, 25),
-    unmatched_boomerang_first_25: unmatchedBoomerang.slice(0, 25)
-  };
-}
-
-    const unmatchedMarketing = [];
-    for (const [key, value] of marketingMap.entries()) {
-      if (!clientKeySet.has(key)) {
-        unmatchedMarketing.push({
-          normalized_name: key,
-          raw_names: Array.from(value.rawNames).join(' | '),
-          last_marketed_date: formatDate(value.lastDate),
-          action_type: Array.from(value.actionTypes).join(' | '),
-          subject: Array.from(value.subjects).join(' | ')
-        });
-      }
-    }
-
-    const unmatchedBoomerang = [];
-    for (const [key, value] of boomerangMap.entries()) {
-      if (!clientKeySet.has(key)) {
-        unmatchedBoomerang.push({
-          normalized_name: key,
-          raw_names: Array.from(value.rawNames).join(' | '),
-          sales_rep: Array.from(value.salesReps).join(' | '),
-          rev_2025: value.rev2025,
-          rev_2026: value.rev2026
-        });
-      }
-    }
-
-    return {
-      unmatched_marketing_first_25: unmatchedMarketing.slice(0, 25),
-      unmatched_boomerang_first_25: unmatchedBoomerang.slice(0, 25)
-    };
-  }
-
-  clientFiles.addEventListener('change', () => renderFileList(clientFiles, clientFilesList));
-  marketingFiles.addEventListener('change', () => renderFileList(marketingFiles, marketingFilesList));
-  boomerangFiles.addEventListener('change', () => renderFileList(boomerangFiles, boomerangFilesList));
-
-  createRunBtn.addEventListener('click', async () => {
-    result.style.display = 'block';
-    result.textContent = 'Creating run and processing files...';
-
-    try {
-      const runResponse = await fetch('/.netlify/functions/create-run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          branch_code: branch.value,
-          created_by: createdBy.value
-        })
-      });
-
-      const runData = await runResponse.json();
-
-      if (!runData.ok || !runData.run?.id) {
-        result.textContent = JSON.stringify(runData, null, 2);
+    function renderFileList(input, target) {
+      const files = Array.from(input.files || []);
+      if (!files.length) {
+        target.className = 'file-list muted';
+        target.textContent = 'No files selected';
         return;
       }
 
-      currentRunId = runData.run.id;
-
-      const clientRows = await readFilesFromInput(clientFiles);
-      const marketingRows = await readFilesFromInput(marketingFiles);
-      const boomerangRows = await readFilesFromInput(boomerangFiles);
-
-      const marketingMap = buildMarketingMap(marketingRows);
-      const boomerangMap = buildBoomerangMap(boomerangRows);
-      const previewRows = buildClientPreview(clientRows, marketingMap, boomerangMap);
-      const diagnostics = buildDiagnostics(clientRows, marketingMap, boomerangMap);
-
-      const summary = {
-        total_clients: previewRows.length,
-        fresh_count: previewRows.filter(x => x.status === 'Fresh').length,
-        stale_count: previewRows.filter(x => x.status === 'Stale').length,
-        no_activity_count: previewRows.filter(x => x.status === 'No Activity').length,
-        boomerang_match_count: previewRows.filter(x => x.boomerang === 'Yes').length
-      };
-
-      const matchedRows = previewRows
-        .filter(x => x.status !== 'No Activity' || x.boomerang === 'Yes')
-        .slice(0, 50);
-
-      result.textContent = JSON.stringify({
-        ok: true,
-        run_id: currentRunId,
-        summary,
-        matched_rows_first_50: matchedRows,
-        ...diagnostics
-      }, null, 2);
-
-    } catch (err) {
-      result.textContent = JSON.stringify({
-        ok: false,
-        error: err.message
-      }, null, 2);
+      target.className = 'file-list';
+      target.innerHTML = files
+        .map(file => `<div>${file.name} <span class="muted">(${Math.round(file.size / 1024)} KB)</span></div>`)
+        .join('');
     }
-  });
-</script>
+
+    function normalizeText(value) {
+      return String(value || '')
+        .trim()
+        .replace(/\s+/g, ' ')
+        .toLowerCase();
+    }
+
+    function normalizeName(value) {
+      return normalizeText(value)
+        .replace(/[^\w\s]/g, '')
+        .replace(/\b(apartments|apartment|apts|apt|homes|townhomes|townhome|village|villas|the|at|community|communities|residences)\b/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function toNumber(value) {
+      if (value === null || value === undefined || value === '') return 0;
+      const num = Number(String(value).replace(/[$,]/g, '').trim());
+      return Number.isFinite(num) ? num : 0;
+    }
+
+    function parseDate(value) {
+      if (value === null || value === undefined || value === '') return null;
+
+      if (value instanceof Date && !isNaN(value.getTime())) {
+        return value;
+      }
+
+      if (typeof value === 'number' && value > 0) {
+        const parsed = XLSX.SSF.parse_date_code(value);
+        if (parsed && parsed.y && parsed.m && parsed.d) {
+          return new Date(parsed.y, parsed.m - 1, parsed.d);
+        }
+        return null;
+      }
+
+      const text = String(value).trim();
+
+      if (/^\d+(\.\d+)?$/.test(text)) {
+        const numericValue = Number(text);
+        if (numericValue > 0) {
+          const parsed = XLSX.SSF.parse_date_code(numericValue);
+          if (parsed && parsed.y && parsed.m && parsed.d) {
+            return new Date(parsed.y, parsed.m - 1, parsed.d);
+          }
+        }
+        return null;
+      }
+
+      const d = new Date(text);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+
+    function formatDate(date) {
+      if (!date || !(date instanceof Date) || isNaN(date.getTime())) return '';
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const dd = String(date.getDate()).padStart(2, '0');
+      const yyyy = date.getFullYear();
+      return `${mm}/${dd}/${yyyy}`;
+    }
+
+    function daysSince(date) {
+      if (!date || !(date instanceof Date) || isNaN(date.getTime())) return null;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const copy = new Date(date);
+      copy.setHours(0, 0, 0, 0);
+
+      const diff = today - copy;
+      return Math.floor(diff / (1000 * 60 * 60 * 24));
+    }
+
+    async function readExcelRows(file) {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+
+      const allRows = [];
+
+      workbook.SheetNames.forEach(sheetName => {
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+        rows.forEach(row => {
+          allRows.push({
+            __sheet_name: sheetName,
+            ...row
+          });
+        });
+      });
+
+      return allRows;
+    }
+
+    async function readFilesFromInput(input) {
+      const files = Array.from(input.files || []);
+      const allRows = [];
+
+      for (const file of files) {
+        const rows = await readExcelRows(file);
+        rows.forEach(row => {
+          allRows.push({
+            __file_name: file.name,
+            ...row
+          });
+        });
+      }
+
+      return allRows;
+    }
+
+    function buildMarketingMap(marketingRows) {
+      const map = new Map();
+
+      for (const row of marketingRows) {
+        const rawName = String(row.CustomerName || '').trim();
+        const key = normalizeName(rawName);
+        if (!key) continue;
+
+        const rawDate = row.Date;
+        const rowDate = parseDate(rawDate);
+
+        if (rawDate && !rowDate) {
+          console.log('Unparsed marketing date:', rawDate);
+        }
+
+        const subject = String(row.Subject || '').trim();
+        const actionType = String(row.ActionType || '').trim();
+
+        if (!map.has(key)) {
+          map.set(key, {
+            rawNames: new Set(rawName ? [rawName] : []),
+            lastDate: rowDate,
+            subjects: new Set(subject ? [subject] : []),
+            actionTypes: new Set(actionType ? [actionType] : [])
+          });
+          continue;
+        }
+
+        const existing = map.get(key);
+        if (rawName) existing.rawNames.add(rawName);
+
+        if (rowDate && (!existing.lastDate || rowDate > existing.lastDate)) {
+          existing.lastDate = rowDate;
+          existing.subjects = new Set(subject ? [subject] : []);
+          existing.actionTypes = new Set(actionType ? [actionType] : []);
+        } else if (
+          rowDate &&
+          existing.lastDate &&
+          rowDate.getTime() === existing.lastDate.getTime()
+        ) {
+          if (subject) existing.subjects.add(subject);
+          if (actionType) existing.actionTypes.add(actionType);
+        }
+      }
+
+      return map;
+    }
+
+    function buildBoomerangMap(boomerangRows) {
+      const map = new Map();
+
+      for (const row of boomerangRows) {
+        const rawName = String(row.CustomerName || '').trim();
+        const key = normalizeName(rawName);
+        if (!key) continue;
+
+        if (!map.has(key)) {
+          map.set(key, {
+            rawNames: new Set(rawName ? [rawName] : []),
+            salesReps: new Set(),
+            rev2025: 0,
+            rev2026: 0
+          });
+        }
+
+        const entry = map.get(key);
+        if (rawName) entry.rawNames.add(rawName);
+        if (row.SalesRep) entry.salesReps.add(String(row.SalesRep).trim());
+        entry.rev2025 += toNumber(row['2025']);
+        entry.rev2026 += toNumber(row['2026']);
+      }
+
+      return map;
+    }
+
+    function buildClientPreview(clientRows, marketingMap, boomerangMap) {
+      return clientRows.map(row => {
+        const clientName = row['Property Name'] || '';
+        const key = normalizeName(clientName);
+
+        const marketing = marketingMap.get(key);
+        const boom = boomerangMap.get(key);
+
+        const lastDate = marketing?.lastDate || null;
+        const touchDays = daysSince(lastDate);
+
+        let status = 'No Activity';
+        if (touchDays !== null) {
+          status = touchDays <= 90 ? 'Fresh' : 'Stale';
+        }
+
+        return {
+          client_name: clientName,
+          normalized_name: key,
+          address: row['Address'] || '',
+          city: row['City'] || '',
+          state: row['State'] || '',
+          zip: row['ZIP'] || '',
+          phone: row['Phone #'] || '',
+          units: toNumber(row['# of Units']),
+          current_manager: row['Current Manager'] || '',
+          management_company: row['Management Company'] || '',
+          customer_name: clientName,
+          action_type: marketing ? Array.from(marketing.actionTypes).join(' | ') : '',
+          last_marketed_date: formatDate(lastDate),
+          last_note: marketing ? Array.from(marketing.subjects).join(' | ') : '',
+          status,
+          days_since_last_touch: touchDays,
+          boomerang: boom ? 'Yes' : 'No',
+          boom_sales_rep: boom ? Array.from(boom.salesReps).join(' | ') : '',
+          boom_2025_rev: boom ? boom.rev2025 : 0,
+          boom_2026_rev: boom ? boom.rev2026 : 0
+        };
+      });
+    }
+
+    function buildDiagnostics(clientRows, marketingMap, boomerangMap) {
+      const clientKeySet = new Set(
+        clientRows
+          .map(row => normalizeName(row['Property Name']))
+          .filter(Boolean)
+      );
+
+      const unmatchedMarketing = [];
+      for (const [key, value] of marketingMap.entries()) {
+        if (!clientKeySet.has(key)) {
+          unmatchedMarketing.push({
+            normalized_name: key,
+            raw_names: Array.from(value.rawNames).join(' | '),
+            last_marketed_date: formatDate(value.lastDate),
+            action_type: Array.from(value.actionTypes).join(' | '),
+            subject: Array.from(value.subjects).join(' | ')
+          });
+        }
+      }
+
+      const unmatchedBoomerang = [];
+      for (const [key, value] of boomerangMap.entries()) {
+        if (!clientKeySet.has(key)) {
+          unmatchedBoomerang.push({
+            normalized_name: key,
+            raw_names: Array.from(value.rawNames).join(' | '),
+            sales_rep: Array.from(value.salesReps).join(' | '),
+            rev_2025: value.rev2025,
+            rev_2026: value.rev2026
+          });
+        }
+      }
+
+      return {
+        unmatched_marketing_first_25: unmatchedMarketing.slice(0, 25),
+        unmatched_boomerang_first_25: unmatchedBoomerang.slice(0, 25)
+      };
+    }
+
+    clientFiles.addEventListener('change', () => renderFileList(clientFiles, clientFilesList));
+    marketingFiles.addEventListener('change', () => renderFileList(marketingFiles, marketingFilesList));
+    boomerangFiles.addEventListener('change', () => renderFileList(boomerangFiles, boomerangFilesList));
+
+    createRunBtn.addEventListener('click', async () => {
+      result.style.display = 'block';
+      result.textContent = 'Creating run and processing files...';
+
+      try {
+        const runResponse = await fetch('/.netlify/functions/create-run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            branch_code: branch.value,
+            created_by: createdBy.value
+          })
+        });
+
+        const runData = await runResponse.json();
+
+        if (!runData.ok || !runData.run?.id) {
+          result.textContent = JSON.stringify(runData, null, 2);
+          return;
+        }
+
+        currentRunId = runData.run.id;
+
+        const clientRows = await readFilesFromInput(clientFiles);
+        const marketingRows = await readFilesFromInput(marketingFiles);
+        const boomerangRows = await readFilesFromInput(boomerangFiles);
+
+        const marketingMap = buildMarketingMap(marketingRows);
+        const boomerangMap = buildBoomerangMap(boomerangRows);
+        const previewRows = buildClientPreview(clientRows, marketingMap, boomerangMap);
+        const diagnostics = buildDiagnostics(clientRows, marketingMap, boomerangMap);
+
+        const summary = {
+          total_clients: previewRows.length,
+          fresh_count: previewRows.filter(x => x.status === 'Fresh').length,
+          stale_count: previewRows.filter(x => x.status === 'Stale').length,
+          no_activity_count: previewRows.filter(x => x.status === 'No Activity').length,
+          boomerang_match_count: previewRows.filter(x => x.boomerang === 'Yes').length
+        };
+
+        const matchedRows = previewRows
+          .filter(x => x.status !== 'No Activity' || x.boomerang === 'Yes')
+          .slice(0, 50);
+
+        result.textContent = JSON.stringify({
+          ok: true,
+          run_id: currentRunId,
+          summary,
+          matched_rows_first_50: matchedRows,
+          ...diagnostics
+        }, null, 2);
+
+      } catch (err) {
+        result.textContent = JSON.stringify({
+          ok: false,
+          error: err.message
+        }, null, 2);
+      }
+    });
+  </script>
 </body>
 </html>
