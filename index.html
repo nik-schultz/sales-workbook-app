@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sales Workbook</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f5f7fb;
+      color: #1f2937;
+    }
+    .wrap {
+      max-width: 900px;
+      margin: 40px auto;
+      background: #fff;
+      padding: 32px;
+      border-radius: 12px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 28px;
+    }
+    p {
+      color: #4b5563;
+    }
+    label {
+      display: block;
+      margin: 18px 0 8px;
+      font-weight: 600;
+    }
+    select, input, button {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #d1d5db;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+    button {
+      margin-top: 22px;
+      background: #0ea5e9;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:hover {
+      background: #0284c7;
+    }
+    .result {
+      margin-top: 24px;
+      padding: 16px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      white-space: pre-wrap;
+      font-family: monospace;
+      font-size: 14px;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Sales Workbook Builder</h1>
+    <p>Create a new report run to start processing files.</p>
+
+    <div class="row">
+      <div>
+        <label for="branch">Branch</label>
+        <select id="branch">
+          <option value="TAMPA">Tampa</option>
+          <option value="SAN_DIEGO">San Diego</option>
+          <option value="PHOENIX">Phoenix</option>
+        </select>
+      </div>
+      <div>
+        <label for="createdBy">Created By</label>
+        <input id="createdBy" type="text" value="nik" />
+      </div>
+    </div>
+
+    <button id="createRunBtn">Create Run</button>
+
+    <div id="result" class="result" style="display:none;"></div>
+  </div>
+
+  <script>
+    const createRunBtn = document.getElementById('createRunBtn');
+    const branch = document.getElementById('branch');
+    const createdBy = document.getElementById('createdBy');
+    const result = document.getElementById('result');
+
+    createRunBtn.addEventListener('click', async () => {
+      result.style.display = 'block';
+      result.textContent = 'Creating run...';
+
+      try {
+        const response = await fetch('/.netlify/functions/create-run', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            branch_code: branch.value,
+            created_by: createdBy.value
+          })
+        });
+
+        const data = await response.json();
+        result.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        result.textContent = JSON.stringify({
+          ok: false,
+          error: err.message
+        }, null, 2);
+      }
+    });
+  </script>
+</body>
+</html>
