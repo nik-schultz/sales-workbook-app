@@ -41,10 +41,18 @@ exports.handler = async function (event) {
     const payload = rows.map(row => ({
       report_run_id: run_id,
       client_name: row.client_name || '',
+      address: row.address || '',
       city: row.city || '',
       state: row.state || '',
+      zip: row.zip || '',
+      phone: row.phone || '',
       units: row.units || 0,
+      current_manager: row.current_manager || '',
+      management_company: row.management_company || '',
+      customer_name: row.customer_name || '',
+      action_type: row.action_type || '',
       last_marketed_date: row.last_marketed_date || '',
+      last_note: row.last_note || '',
       days_since_last_touch: row.days_since_last_touch,
       status: row.status || '',
       boomerang: row.boomerang || 'No',
@@ -54,11 +62,15 @@ exports.handler = async function (event) {
     }));
 
     if (payload.length) {
-      const { error: insertError } = await supabase
-        .from('report_results_web')
-        .insert(payload);
+      const chunkSize = 500;
+      for (let i = 0; i < payload.length; i += chunkSize) {
+        const chunk = payload.slice(i, i + chunkSize);
+        const { error: insertError } = await supabase
+          .from('report_results_web')
+          .insert(chunk);
 
-      if (insertError) throw insertError;
+        if (insertError) throw insertError;
+      }
     }
 
     const { error: updateError } = await supabase
