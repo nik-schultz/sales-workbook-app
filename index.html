@@ -11,26 +11,41 @@
       background: #f5f7fb;
       color: #1f2937;
     }
+
     .wrap {
-      max-width: 980px;
+      max-width: 1200px;
       margin: 40px auto;
       background: #fff;
       padding: 32px;
       border-radius: 12px;
       box-shadow: 0 8px 30px rgba(0,0,0,0.08);
     }
+
     h1 {
       margin-top: 0;
       font-size: 28px;
     }
+
+    h2 {
+      margin: 32px 0 12px;
+      font-size: 22px;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 18px;
+    }
+
     p {
       color: #4b5563;
     }
+
     label {
       display: block;
       margin: 18px 0 8px;
       font-weight: 600;
     }
+
     select, input, button {
       width: 100%;
       padding: 12px;
@@ -39,6 +54,7 @@
       font-size: 16px;
       box-sizing: border-box;
     }
+
     button {
       margin-top: 22px;
       background: #0ea5e9;
@@ -47,9 +63,11 @@
       cursor: pointer;
       font-weight: 600;
     }
+
     button:hover {
       background: #0284c7;
     }
+
     .result {
       margin-top: 24px;
       padding: 16px;
@@ -61,50 +79,155 @@
       font-size: 14px;
       overflow-x: auto;
     }
+
     .row {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 16px;
     }
+
     .upload-grid {
       display: grid;
       grid-template-columns: 1fr;
       gap: 18px;
       margin-top: 24px;
     }
+
     .upload-box {
       border: 1px solid #d1d5db;
       border-radius: 10px;
       padding: 18px;
       background: #fafafa;
     }
-    .upload-box h3 {
-      margin: 0 0 8px;
-      font-size: 18px;
-    }
-    .upload-box p {
-      margin: 0 0 12px;
-      font-size: 14px;
-    }
+
     .file-list {
       margin-top: 10px;
       font-size: 14px;
       color: #374151;
     }
+
     .file-list div {
       padding: 6px 0;
       border-bottom: 1px solid #e5e7eb;
     }
+
     .muted {
       color: #6b7280;
       font-size: 13px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 14px;
+      margin-top: 24px;
+    }
+
+    .summary-card {
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 16px;
+    }
+
+    .summary-label {
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 8px;
+    }
+
+    .summary-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    .section-card {
+      margin-top: 28px;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    .section-header {
+      padding: 16px 18px;
+      border-bottom: 1px solid #e5e7eb;
+      background: #f9fafb;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 900px;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #e5e7eb;
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }
+
+    th {
+      background: #d9eaf7;
+      font-weight: 700;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    tr.fresh-row {
+      background: #c6efce;
+      color: #006100;
+    }
+
+    tr.stale-row {
+      background: #ffc7ce;
+      color: #9c0006;
+    }
+
+    tr.no-activity-row {
+      background: #fff;
+      color: #111827;
+    }
+
+    .empty-state {
+      padding: 16px 18px;
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .small-note {
+      margin-top: 6px;
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    @media (max-width: 900px) {
+      .row {
+        grid-template-columns: 1fr;
+      }
+
+      .summary-grid {
+        grid-template-columns: 1fr 1fr;
+      }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
     <h1>Sales Workbook Builder</h1>
-    <p>Create a new report run, then upload your files.</p>
+    <p>Create a new report run, upload your files, and preview the results on the page.</p>
 
     <div class="row">
       <div>
@@ -121,7 +244,7 @@
       </div>
     </div>
 
-    <button id="createRunBtn">Create Run</button>
+    <button id="createRunBtn">Create Run + Preview</button>
 
     <div id="result" class="result" style="display:none;"></div>
 
@@ -147,6 +270,54 @@
         <div id="boomerangFilesList" class="file-list muted">No files selected</div>
       </div>
     </div>
+
+    <div id="resultsArea" class="hidden">
+      <h2>Results</h2>
+
+      <div id="summaryGrid" class="summary-grid"></div>
+
+      <div class="section-card">
+        <div class="section-header">
+          <h3>Main Preview</h3>
+          <div class="small-note">Sorted with No Activity first, then Stale, then Fresh. Units descending within each group.</div>
+        </div>
+        <div class="table-wrap">
+          <table id="mainPreviewTable">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div id="mainPreviewEmpty" class="empty-state hidden">No preview rows to display.</div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-header">
+          <h3>Unmatched Marketing</h3>
+          <div class="small-note">These marketing names did not exactly match a client property name.</div>
+        </div>
+        <div class="table-wrap">
+          <table id="unmatchedMarketingTable">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div id="unmatchedMarketingEmpty" class="empty-state hidden">No unmatched marketing rows.</div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-header">
+          <h3>Unmatched Boomerang</h3>
+          <div class="small-note">These boomerang names did not exactly match a client property name.</div>
+        </div>
+        <div class="table-wrap">
+          <table id="unmatchedBoomerangTable">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div id="unmatchedBoomerangEmpty" class="empty-state hidden">No unmatched boomerang rows.</div>
+      </div>
+    </div>
   </div>
 
   <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
@@ -155,6 +326,8 @@
     const branch = document.getElementById('branch');
     const createdBy = document.getElementById('createdBy');
     const result = document.getElementById('result');
+    const resultsArea = document.getElementById('resultsArea');
+    const summaryGrid = document.getElementById('summaryGrid');
 
     const clientFiles = document.getElementById('clientFiles');
     const marketingFiles = document.getElementById('marketingFiles');
@@ -163,6 +336,14 @@
     const clientFilesList = document.getElementById('clientFilesList');
     const marketingFilesList = document.getElementById('marketingFilesList');
     const boomerangFilesList = document.getElementById('boomerangFilesList');
+
+    const mainPreviewTable = document.getElementById('mainPreviewTable');
+    const unmatchedMarketingTable = document.getElementById('unmatchedMarketingTable');
+    const unmatchedBoomerangTable = document.getElementById('unmatchedBoomerangTable');
+
+    const mainPreviewEmpty = document.getElementById('mainPreviewEmpty');
+    const unmatchedMarketingEmpty = document.getElementById('unmatchedMarketingEmpty');
+    const unmatchedBoomerangEmpty = document.getElementById('unmatchedBoomerangEmpty');
 
     let currentRunId = null;
 
@@ -301,10 +482,6 @@
 
         const rawDate = row.Date;
         const rowDate = parseDate(rawDate);
-
-        if (rawDate && !rowDate) {
-          console.log('Unparsed marketing date:', rawDate);
-        }
 
         const subject = String(row.Subject || '').trim();
         const actionType = String(row.ActionType || '').trim();
@@ -446,6 +623,97 @@
       };
     }
 
+    function sortPreviewRows(rows) {
+      const statusOrder = {
+        'No Activity': 0,
+        'Stale': 1,
+        'Fresh': 2
+      };
+
+      return [...rows].sort((a, b) => {
+        const statusDiff = (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99);
+        if (statusDiff !== 0) return statusDiff;
+
+        return (b.units || 0) - (a.units || 0);
+      });
+    }
+
+    function renderSummary(summary) {
+      summaryGrid.innerHTML = '';
+
+      const items = [
+        { label: 'Total Clients', value: summary.total_clients },
+        { label: 'Fresh Accounts', value: summary.fresh_count },
+        { label: 'Stale Accounts', value: summary.stale_count },
+        { label: 'No Activity Accounts', value: summary.no_activity_count },
+        { label: 'Boomerang Matches', value: summary.boomerang_match_count }
+      ];
+
+      items.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'summary-card';
+        card.innerHTML = `
+          <div class="summary-label">${item.label}</div>
+          <div class="summary-value">${item.value}</div>
+        `;
+        summaryGrid.appendChild(card);
+      });
+    }
+
+    function renderTable(table, emptyEl, rows, columns, rowClassFn = null) {
+      const thead = table.querySelector('thead');
+      const tbody = table.querySelector('tbody');
+
+      thead.innerHTML = '';
+      tbody.innerHTML = '';
+
+      if (!rows.length) {
+        table.classList.add('hidden');
+        emptyEl.classList.remove('hidden');
+        return;
+      }
+
+      table.classList.remove('hidden');
+      emptyEl.classList.add('hidden');
+
+      const headerRow = document.createElement('tr');
+      columns.forEach(col => {
+        const th = document.createElement('th');
+        th.textContent = col.label;
+        headerRow.appendChild(th);
+      });
+      thead.appendChild(headerRow);
+
+      rows.forEach(row => {
+        const tr = document.createElement('tr');
+
+        if (rowClassFn) {
+          tr.className = rowClassFn(row);
+        }
+
+        columns.forEach(col => {
+          const td = document.createElement('td');
+          const value = row[col.key];
+
+          if (typeof col.format === 'function') {
+            td.textContent = col.format(value, row);
+          } else {
+            td.textContent = value ?? '';
+          }
+
+          tr.appendChild(td);
+        });
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    function getStatusRowClass(row) {
+      if (row.status === 'Fresh') return 'fresh-row';
+      if (row.status === 'Stale') return 'stale-row';
+      return 'no-activity-row';
+    }
+
     clientFiles.addEventListener('change', () => renderFileList(clientFiles, clientFilesList));
     marketingFiles.addEventListener('change', () => renderFileList(marketingFiles, marketingFilesList));
     boomerangFiles.addEventListener('change', () => renderFileList(boomerangFiles, boomerangFilesList));
@@ -453,6 +721,7 @@
     createRunBtn.addEventListener('click', async () => {
       result.style.display = 'block';
       result.textContent = 'Creating run and processing files...';
+      resultsArea.classList.add('hidden');
 
       try {
         const runResponse = await fetch('/.netlify/functions/create-run', {
@@ -490,16 +759,66 @@
           boomerang_match_count: previewRows.filter(x => x.boomerang === 'Yes').length
         };
 
-        const matchedRows = previewRows
-          .filter(x => x.status !== 'No Activity' || x.boomerang === 'Yes')
-          .slice(0, 50);
+        const sortedPreviewRows = sortPreviewRows(previewRows).slice(0, 50);
+
+        renderSummary(summary);
+
+        renderTable(
+          mainPreviewTable,
+          mainPreviewEmpty,
+          sortedPreviewRows,
+          [
+            { key: 'client_name', label: 'Client Name' },
+            { key: 'city', label: 'City' },
+            { key: 'state', label: 'State' },
+            { key: 'units', label: 'Units' },
+            { key: 'last_marketed_date', label: 'Last Marketed Date' },
+            { key: 'days_since_last_touch', label: 'Days Since Last Touch' },
+            { key: 'status', label: 'Status' },
+            { key: 'boomerang', label: 'Boomerang' },
+            { key: 'boom_sales_rep', label: 'Boom Sales Rep' },
+            { key: 'boom_2025_rev', label: 'Boom 2025 Rev', format: v => v ? `$${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$0.00' },
+            { key: 'boom_2026_rev', label: 'Boom 2026 Rev', format: v => v ? `$${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$0.00' },
+            { key: 'last_note', label: 'Last Note' }
+          ],
+          getStatusRowClass
+        );
+
+        renderTable(
+          unmatchedMarketingTable,
+          unmatchedMarketingEmpty,
+          diagnostics.unmatched_marketing_first_25,
+          [
+            { key: 'raw_names', label: 'Raw Name' },
+            { key: 'normalized_name', label: 'Normalized Name' },
+            { key: 'last_marketed_date', label: 'Last Marketed Date' },
+            { key: 'action_type', label: 'Action Type' },
+            { key: 'subject', label: 'Subject' }
+          ]
+        );
+
+        renderTable(
+          unmatchedBoomerangTable,
+          unmatchedBoomerangEmpty,
+          diagnostics.unmatched_boomerang_first_25,
+          [
+            { key: 'raw_names', label: 'Raw Name' },
+            { key: 'normalized_name', label: 'Normalized Name' },
+            { key: 'sales_rep', label: 'Sales Rep' },
+            { key: 'rev_2025', label: '2025 Rev', format: v => `$${Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+            { key: 'rev_2026', label: '2026 Rev', format: v => `$${Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` }
+          ]
+        );
+
+        resultsArea.classList.remove('hidden');
 
         result.textContent = JSON.stringify({
           ok: true,
           run_id: currentRunId,
           summary,
-          matched_rows_first_50: matchedRows,
-          ...diagnostics
+          preview_count: sortedPreviewRows.length,
+          unmatched_marketing_count: diagnostics.unmatched_marketing_first_25.length,
+          unmatched_boomerang_count: diagnostics.unmatched_boomerang_first_25.length
         }, null, 2);
 
       } catch (err) {
