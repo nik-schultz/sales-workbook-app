@@ -179,38 +179,190 @@
       .join('');
   }
 
-  async function readExcelFile(file) {
+  function normalizeText(value) {
+    return String(value || '')
+      .trim()
+      .replace(/\s+/g, ' ')
+      .toLowerCase();
+  }
+
+  function normalizeName(value) {
+    return normalizeText(value)
+      .replace(/[^\w\s]/g, '')
+      .replace(/\b(apartments|apartment|apts|apt|homes|townhomes|townhome|village|villas|the|at|community|communities|residences)\b/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function toNumber(value) {
+    if (value === null || value === undefined || value === '') return 0;
+    const num = Number(String(value).replace(/[$,]/g, '').trim());
+    return Number.isFinite(num) ? num : 0;
+  }
+
+  function parseDate(value) {
+    if (!value) return null;
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  function formatDate(date) {
+    if (!date) return '';
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    const yyyy = date.getFullYear();
+    return `${mm}/${dd}/${yyyy}`;
+  }
+
+  function daysSince(date) {
+    if (!date) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const copy = new Date(date);
+    copy.setHours(0, 0, 0, 0);
+    const diff = today - copy;
+    return Math.floor(diff / (1000 * 60 * 60 * 24));
+  }
+
+  async function readExcelRows(file) {
     const buffer = await file.arrayBuffer();
     const workbook = XLSX.read(buffer, { type: 'array' });
 
-    const summaries = workbook.SheetNames.map(sheetName => {
+    const allRows = [];
+
+    workbook.SheetNames.forEach(sheetName => {
       const sheet = workbook.Sheets[sheetName];
       const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-
-      return {
-        sheet_name: sheetName,
-        row_count: rows.length,
-        headers: rows.length ? Object.keys(rows[0]) : []
-      };
+      rows.forEach(row => {
+        allRows.push({
+          __sheet_name: sheetName,
+          ...row
+        });
+      });
     });
 
-    return {
-      file_name: file.name,
-      sheet_count: workbook.SheetNames.length,
-      sheets: summaries
-    };
+    return allRows;
   }
 
   async function readFilesFromInput(input) {
     const files = Array.from(input.files || []);
-    const results = [];
+    const allRows = [];
 
     for (const file of files) {
-      const parsed = await readExcelFile(file);
-      results.push(parsed);
+      const rows = await readExcelRows(file);
+      rows.forEach(row => {
+        allRows.push({
+          __file_name: file.name,
+          ...row
+        });
+      });
     }
 
-    return results;
+    return allRows;
+  }
+
+  function buildMarketingMap(marketingRows) {
+    const map = new Map();
+
+    for (const row of marketingRows) {
+      const key = normalizeName(row.CustomerName);
+      if (!key) continue;
+
+      const rowDate = parseDate(row.Date);
+      const subject = String(row.Subject || '').trim();
+      const actionType = String(row.ActionType || '').trim();
+
+      if (!map.has(key)) {
+        map.set(key, {
+          lastDate: rowDate,
+          subjects: new Set(subject ? [subject] : []),
+          actionTypes: new Set(actionType ? [actionType] : [])
+        });
+        continue;
+      }
+
+      const existing = map.get(key);
+
+      if (rowDate && (!existing.lastDate || rowDate > existing.lastDate)) {
+        existing.lastDate = rowDate;
+        existing.subjects = new Set(subject ? [subject] : []);
+        existing.actionTypes = new Set(actionType ? [actionType] : []);
+      } else if (
+        rowDate &&
+        existing.lastDate &&
+        rowDate.getTime() === existing.lastDate.getTime()
+      ) {
+        if (subject) existing.subjects.add(subject);
+        if (actionType) existing.actionTypes.add(actionType);
+      }
+    }
+
+    return map;
+  }
+
+  function buildBoomerangMap(boomerangRows) {
+    const map = new Map();
+
+    for (const row of boomerangRows) {
+      const key = normalizeName(row.CustomerName);
+      if (!key) continue;
+
+      if (!map.has(key)) {
+        map.set(key, {
+          matched: true,
+          salesReps: new Set(),
+          rev2025: 0,
+          rev2026: 0
+        });
+      }
+
+      const entry = map.get(key);
+      if (row.SalesRep) entry.salesReps.add(String(row.SalesRep).trim());
+      entry.rev2025 += toNumber(row['2025']);
+      entry.rev2026 += toNumber(row['2026']);
+    }
+
+    return map;
+  }
+
+  function buildClientPreview(clientRows, marketingMap, boomerangMap) {
+    return clientRows.map(row => {
+      const clientName = row['Property Name'] || '';
+      const key = normalizeName(clientName);
+
+      const marketing = marketingMap.get(key);
+      const boom = boomerangMap.get(key);
+
+      const lastDate = marketing?.lastDate || null;
+      const touchDays = daysSince(lastDate);
+
+      let status = 'No Activity';
+      if (touchDays !== null) {
+        status = touchDays <= 90 ? 'Fresh' : 'Stale';
+      }
+
+      return {
+        client_name: clientName,
+        address: row['Address'] || '',
+        city: row['City'] || '',
+        state: row['State'] || '',
+        zip: row['ZIP'] || '',
+        phone: row['Phone #'] || '',
+        units: toNumber(row['# of Units']),
+        current_manager: row['Current Manager'] || '',
+        management_company: row['Management Company'] || '',
+        customer_name: clientName,
+        action_type: marketing ? Array.from(marketing.actionTypes).join(' | ') : '',
+        last_marketed_date: formatDate(lastDate),
+        last_note: marketing ? Array.from(marketing.subjects).join(' | ') : '',
+        status,
+        days_since_last_touch: touchDays,
+        boomerang: boom ? 'Yes' : 'No',
+        boom_sales_rep: boom ? Array.from(boom.salesReps).join(' | ') : '',
+        boom_2025_rev: boom ? boom.rev2025 : 0,
+        boom_2026_rev: boom ? boom.rev2026 : 0
+      };
+    });
   }
 
   clientFiles.addEventListener('change', () => renderFileList(clientFiles, clientFilesList));
@@ -219,14 +371,12 @@
 
   createRunBtn.addEventListener('click', async () => {
     result.style.display = 'block';
-    result.textContent = 'Creating run and reading files...';
+    result.textContent = 'Creating run and processing files...';
 
     try {
       const runResponse = await fetch('/.netlify/functions/create-run', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           branch_code: branch.value,
           created_by: createdBy.value
@@ -242,18 +392,27 @@
 
       currentRunId = runData.run.id;
 
-      const clientSummary = await readFilesFromInput(clientFiles);
-      const marketingSummary = await readFilesFromInput(marketingFiles);
-      const boomerangSummary = await readFilesFromInput(boomerangFiles);
+      const clientRows = await readFilesFromInput(clientFiles);
+      const marketingRows = await readFilesFromInput(marketingFiles);
+      const boomerangRows = await readFilesFromInput(boomerangFiles);
+
+      const marketingMap = buildMarketingMap(marketingRows);
+      const boomerangMap = buildBoomerangMap(boomerangRows);
+      const previewRows = buildClientPreview(clientRows, marketingMap, boomerangMap);
+
+      const summary = {
+        total_clients: previewRows.length,
+        fresh_count: previewRows.filter(x => x.status === 'Fresh').length,
+        stale_count: previewRows.filter(x => x.status === 'Stale').length,
+        no_activity_count: previewRows.filter(x => x.status === 'No Activity').length,
+        boomerang_match_count: previewRows.filter(x => x.boomerang === 'Yes').length
+      };
 
       result.textContent = JSON.stringify({
         ok: true,
         run_id: currentRunId,
-        branch: branch.value,
-        created_by: createdBy.value,
-        client_files: clientSummary,
-        marketing_files: marketingSummary,
-        boomerang_files: boomerangSummary
+        summary,
+        preview_first_25: previewRows.slice(0, 25)
       }, null, 2);
 
     } catch (err) {
