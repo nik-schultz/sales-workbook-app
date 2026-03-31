@@ -1,243 +1,891 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Sales Workbook</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sales Workbook</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f5f7fb;
+      color: #1f2937;
+    }
 
-<style>
-body { font-family: Arial; background:#f5f7fb; margin:0; }
-.wrap { max-width:1200px; margin:40px auto; background:#fff; padding:30px; border-radius:10px; }
-h1 { margin-top:0; }
-button { background:#0ea5e9; color:#fff; padding:12px; border:none; border-radius:8px; cursor:pointer; width:100%; margin-top:20px;}
-input, select { width:100%; padding:10px; margin-top:5px; border-radius:6px; border:1px solid #ccc;}
-.row { display:grid; grid-template-columns:1fr 1fr; gap:15px;}
+    .wrap {
+      max-width: 1200px;
+      margin: 40px auto;
+      background: #fff;
+      padding: 32px;
+      border-radius: 12px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+    }
 
-.summary-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-top:20px;}
-.summary-card { background:#f8fafc; padding:15px; border-radius:8px; border:1px solid #ddd;}
-.summary-value { font-size:22px; font-weight:bold;}
+    h1 {
+      margin-top: 0;
+      font-size: 28px;
+    }
 
-table { width:100%; border-collapse:collapse; margin-top:10px;}
-th, td { padding:8px; border-bottom:1px solid #eee; font-size:13px;}
-th { background:#e3f2fd; }
+    h2 {
+      margin: 32px 0 12px;
+      font-size: 22px;
+    }
 
-.fresh-row { background:#c6efce;}
-.stale-row { background:#ffc7ce;}
+    h3 {
+      margin: 0 0 8px;
+      font-size: 18px;
+    }
 
-.hidden { display:none; }
-.section { margin-top:30px;}
-</style>
+    p {
+      color: #4b5563;
+    }
+
+    label {
+      display: block;
+      margin: 18px 0 8px;
+      font-weight: 600;
+    }
+
+    select, input, button {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #d1d5db;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+
+    button {
+      margin-top: 22px;
+      background: #0ea5e9;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    button:hover {
+      background: #0284c7;
+    }
+
+    .result {
+      margin-top: 24px;
+      padding: 16px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 14px;
+      overflow-x: auto;
+    }
+
+    .result pre {
+      margin: 0;
+      white-space: pre-wrap;
+      font-family: monospace;
+      font-size: 14px;
+    }
+
+    .result a {
+      display: inline-block;
+      margin-top: 12px;
+      font-weight: 700;
+      color: #0284c7;
+      text-decoration: none;
+    }
+
+    .result a:hover {
+      text-decoration: underline;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .upload-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 18px;
+      margin-top: 24px;
+    }
+
+    .upload-box {
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      padding: 18px;
+      background: #fafafa;
+    }
+
+    .file-list {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #374151;
+    }
+
+    .file-list div {
+      padding: 6px 0;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .muted {
+      color: #6b7280;
+      font-size: 13px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 14px;
+      margin-top: 24px;
+    }
+
+    .summary-card {
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 16px;
+    }
+
+    .summary-label {
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 8px;
+    }
+
+    .summary-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    .section-card {
+      margin-top: 28px;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    .section-header {
+      padding: 16px 18px;
+      border-bottom: 1px solid #e5e7eb;
+      background: #f9fafb;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 900px;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #e5e7eb;
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }
+
+    th {
+      background: #d9eaf7;
+      font-weight: 700;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    tr.fresh-row {
+      background: #c6efce;
+      color: #006100;
+    }
+
+    tr.stale-row {
+      background: #ffc7ce;
+      color: #9c0006;
+    }
+
+    tr.no-activity-row {
+      background: #fff;
+      color: #111827;
+    }
+
+    .empty-state {
+      padding: 16px 18px;
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .small-note {
+      margin-top: 6px;
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    @media (max-width: 900px) {
+      .row {
+        grid-template-columns: 1fr;
+      }
+
+      .summary-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+  </style>
 </head>
-
 <body>
-<div class="wrap">
-<h1>Sales Workbook Builder</h1>
+  <div class="wrap">
+    <h1>Sales Workbook Builder</h1>
+    <p>Create a new report run, upload your files, preview results, and save them online.</p>
 
-<div class="row">
-  <div>
-    <label>Branch</label>
-    <select id="branch">
-      <option>SAN_DIEGO</option>
-      <option>TAMPA</option>
-      <option>PHOENIX</option>
-    </select>
+    <div class="row">
+      <div>
+        <label for="branch">Branch</label>
+        <select id="branch">
+          <option value="TAMPA">Tampa</option>
+          <option value="SAN_DIEGO">San Diego</option>
+          <option value="PHOENIX">Phoenix</option>
+        </select>
+      </div>
+      <div>
+        <label for="createdBy">Created By</label>
+        <input id="createdBy" type="text" value="nik" />
+      </div>
+    </div>
+
+    <button id="createRunBtn">Create Run + Preview</button>
+
+    <div id="result" class="result" style="display:none;"></div>
+
+    <div class="upload-grid">
+      <div class="upload-box">
+        <h3>Client Files</h3>
+        <p>Upload one or more client list Excel files.</p>
+        <input id="clientFiles" type="file" multiple accept=".xls,.xlsx" />
+        <div id="clientFilesList" class="file-list muted">No files selected</div>
+      </div>
+
+      <div class="upload-box">
+        <h3>Marketing Files</h3>
+        <p>Upload one or more marketing activity Excel files.</p>
+        <input id="marketingFiles" type="file" multiple accept=".xls,.xlsx" />
+        <div id="marketingFilesList" class="file-list muted">No files selected</div>
+      </div>
+
+      <div class="upload-box">
+        <h3>Boomerang Files</h3>
+        <p>Upload one or more boomerang customer Excel files.</p>
+        <input id="boomerangFiles" type="file" multiple accept=".xls,.xlsx" />
+        <div id="boomerangFilesList" class="file-list muted">No files selected</div>
+      </div>
+    </div>
+
+    <div id="resultsArea" class="hidden">
+      <h2>Results</h2>
+
+      <div id="summaryGrid" class="summary-grid"></div>
+
+      <div class="section-card">
+        <div class="section-header">
+          <h3>Main Preview</h3>
+          <div class="small-note">Sorted with No Activity first, then Stale, then Fresh. Units descending within each group.</div>
+        </div>
+        <div class="table-wrap">
+          <table id="mainPreviewTable">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div id="mainPreviewEmpty" class="empty-state hidden">No preview rows to display.</div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-header">
+          <h3>Unmatched Marketing</h3>
+          <div class="small-note">These marketing names did not exactly match a client property name.</div>
+        </div>
+        <div class="table-wrap">
+          <table id="unmatchedMarketingTable">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div id="unmatchedMarketingEmpty" class="empty-state hidden">No unmatched marketing rows.</div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-header">
+          <h3>Unmatched Boomerang</h3>
+          <div class="small-note">These boomerang names did not exactly match a client property name.</div>
+        </div>
+        <div class="table-wrap">
+          <table id="unmatchedBoomerangTable">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div id="unmatchedBoomerangEmpty" class="empty-state hidden">No unmatched boomerang rows.</div>
+      </div>
+    </div>
   </div>
 
-  <div>
-    <label>Created By</label>
-    <input id="createdBy" value="nik"/>
-  </div>
-</div>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <script>
+    const createRunBtn = document.getElementById('createRunBtn');
+    const branch = document.getElementById('branch');
+    const createdBy = document.getElementById('createdBy');
+    const result = document.getElementById('result');
+    const resultsArea = document.getElementById('resultsArea');
+    const summaryGrid = document.getElementById('summaryGrid');
 
-<button id="runBtn">Create Run + Preview</button>
+    const clientFiles = document.getElementById('clientFiles');
+    const marketingFiles = document.getElementById('marketingFiles');
+    const boomerangFiles = document.getElementById('boomerangFiles');
 
-<div id="result"></div>
+    const clientFilesList = document.getElementById('clientFilesList');
+    const marketingFilesList = document.getElementById('marketingFilesList');
+    const boomerangFilesList = document.getElementById('boomerangFilesList');
 
-<div id="resultsArea" class="hidden">
+    const mainPreviewTable = document.getElementById('mainPreviewTable');
+    const unmatchedMarketingTable = document.getElementById('unmatchedMarketingTable');
+    const unmatchedBoomerangTable = document.getElementById('unmatchedBoomerangTable');
 
-  <div id="summaryGrid" class="summary-grid"></div>
+    const mainPreviewEmpty = document.getElementById('mainPreviewEmpty');
+    const unmatchedMarketingEmpty = document.getElementById('unmatchedMarketingEmpty');
+    const unmatchedBoomerangEmpty = document.getElementById('unmatchedBoomerangEmpty');
 
-  <div class="section">
-    <h2>Main Preview</h2>
-    <table id="mainTable">
-      <thead></thead>
-      <tbody></tbody>
-    </table>
-  </div>
+    let currentRunId = null;
 
-  <div class="section">
-    <h2>Unmatched Marketing</h2>
-    <table id="marketingTable">
-      <thead></thead>
-      <tbody></tbody>
-    </table>
-  </div>
+    function renderFileList(input, target) {
+      const files = Array.from(input.files || []);
+      if (!files.length) {
+        target.className = 'file-list muted';
+        target.textContent = 'No files selected';
+        return;
+      }
 
-  <div class="section">
-    <h2>Unmatched Boomerang</h2>
-    <table id="boomerangTable">
-      <thead></thead>
-      <tbody></tbody>
-    </table>
-  </div>
+      target.className = 'file-list';
+      target.innerHTML = files
+        .map(file => `<div>${file.name} <span class="muted">(${Math.round(file.size / 1024)} KB)</span></div>`)
+        .join('');
+    }
 
-</div>
-</div>
+    function normalizeText(value) {
+      return String(value || '')
+        .trim()
+        .replace(/\s+/g, ' ')
+        .toLowerCase();
+    }
 
-<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    function normalizeName(value) {
+      return normalizeText(value)
+        .replace(/[^\w\s]/g, '')
+        .replace(/\b(apartments|apartment|apts|apt|homes|townhomes|townhome|village|villas|the|at|community|communities|residences)\b/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
 
-<script>
+    function toNumber(value) {
+      if (value === null || value === undefined || value === '') return 0;
+      const num = Number(String(value).replace(/[$,]/g, '').trim());
+      return Number.isFinite(num) ? num : 0;
+    }
 
-// ---------- HELPERS ----------
+    function parseDate(value) {
+      if (value === null || value === undefined || value === '') return null;
 
-function normalizeName(v){
-  return String(v||'').toLowerCase()
-    .replace(/[^\w\s]/g,'')
-    .replace(/\b(apartments|the|at|villas|homes|apt)\b/g,'')
-    .replace(/\s+/g,' ')
-    .trim();
-}
+      if (value instanceof Date && !isNaN(value.getTime())) {
+        return value;
+      }
 
-function parseDate(v){
-  if(!v) return null;
+      if (typeof value === 'number' && value > 0) {
+        const parsed = XLSX.SSF.parse_date_code(value);
+        if (parsed && parsed.y && parsed.m && parsed.d) {
+          return new Date(parsed.y, parsed.m - 1, parsed.d);
+        }
+        return null;
+      }
 
-  if(typeof v === 'number'){
-    const d = XLSX.SSF.parse_date_code(v);
-    if(d) return new Date(d.y, d.m-1, d.d);
-  }
+      const text = String(value).trim();
 
-  const d = new Date(v);
-  return isNaN(d) ? null : d;
-}
+      if (/^\d+(\.\d+)?$/.test(text)) {
+        const numericValue = Number(text);
+        if (numericValue > 0) {
+          const parsed = XLSX.SSF.parse_date_code(numericValue);
+          if (parsed && parsed.y && parsed.m && parsed.d) {
+            return new Date(parsed.y, parsed.m - 1, parsed.d);
+          }
+        }
+        return null;
+      }
 
-function formatDate(d){
-  if(!d) return '';
-  return `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`;
-}
+      const d = new Date(text);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
 
-function daysSince(d){
-  if(!d) return null;
-  return Math.floor((new Date() - d) / (1000*60*60*24));
-}
+    function formatDate(date) {
+      if (!date || !(date instanceof Date) || isNaN(date.getTime())) return '';
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const dd = String(date.getDate()).padStart(2, '0');
+      const yyyy = date.getFullYear();
+      return `${mm}/${dd}/${yyyy}`;
+    }
 
-async function readFile(file){
-  const data = await file.arrayBuffer();
-  const wb = XLSX.read(data);
-  return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-}
+    function daysSince(date) {
+      if (!date || !(date instanceof Date) || isNaN(date.getTime())) return null;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-// ---------- RENDER ----------
+      const copy = new Date(date);
+      copy.setHours(0, 0, 0, 0);
 
-function renderSummary(summary){
-  const el = document.getElementById('summaryGrid');
-  el.innerHTML = '';
+      const diff = today - copy;
+      return Math.floor(diff / (1000 * 60 * 60 * 24));
+    }
 
-  const items = [
-    ['Total', summary.total_clients],
-    ['Fresh', summary.fresh_count],
-    ['Stale', summary.stale_count],
-    ['No Activity', summary.no_activity_count],
-    ['Boomerang', summary.boomerang_match_count],
-  ];
+    async function readExcelRows(file) {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
 
-  items.forEach(i=>{
-    const div = document.createElement('div');
-    div.className='summary-card';
-    div.innerHTML = `<div>${i[0]}</div><div class="summary-value">${i[1]}</div>`;
-    el.appendChild(div);
-  });
-}
+      const allRows = [];
 
-function renderTable(id, rows){
-  const table = document.getElementById(id);
-  const thead = table.querySelector('thead');
-  const tbody = table.querySelector('tbody');
+      workbook.SheetNames.forEach(sheetName => {
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
-  if(!rows.length){
-    tbody.innerHTML='';
-    return;
-  }
+        rows.forEach(row => {
+          allRows.push({
+            __sheet_name: sheetName,
+            ...row
+          });
+        });
+      });
 
-  thead.innerHTML = '<tr>' + Object.keys(rows[0]).map(k=>`<th>${k}</th>`).join('') + '</tr>';
+      return allRows;
+    }
 
-  tbody.innerHTML = rows.map(r=>{
-    const cls = r.status === 'Fresh' ? 'fresh-row' : r.status === 'Stale' ? 'stale-row' : '';
-    return `<tr class="${cls}">
-      ${Object.values(r).map(v=>`<td>${v ?? ''}</td>`).join('')}
-    </tr>`;
-  }).join('');
-}
+    async function readFilesFromInput(input) {
+      const files = Array.from(input.files || []);
+      const allRows = [];
 
-// ---------- MAIN ----------
+      for (const file of files) {
+        const rows = await readExcelRows(file);
+        rows.forEach(row => {
+          allRows.push({
+            __file_name: file.name,
+            ...row
+          });
+        });
+      }
 
-document.getElementById('runBtn').onclick = async () => {
+      return allRows;
+    }
 
-try {
+    function buildMarketingMap(marketingRows) {
+      const map = new Map();
 
-const clientFile = document.querySelector('#clientFiles')?.files?.[0];
-const marketingFile = document.querySelector('#marketingFiles')?.files?.[0];
-const boomerangFile = document.querySelector('#boomerangFiles')?.files?.[0];
+      for (const row of marketingRows) {
+        const rawName = String(row.CustomerName || '').trim();
+        const key = normalizeName(rawName);
+        if (!key) continue;
 
-const clients = clientFile ? await readFile(clientFile) : [];
-const marketing = marketingFile ? await readFile(marketingFile) : [];
-const boom = boomerangFile ? await readFile(boomerangFile) : [];
+        const rawDate = row.Date;
+        const rowDate = parseDate(rawDate);
 
-const marketingMap = {};
-marketing.forEach(r=>{
-  const key = normalizeName(r.CustomerName);
-  const d = parseDate(r.Date);
-  if(!marketingMap[key] || d > marketingMap[key].date){
-    marketingMap[key] = {date:d, note:r.Subject};
-  }
-});
+        const subject = String(row.Subject || '').trim();
+        const actionType = String(row.ActionType || '').trim();
 
-const boomMap = {};
-boom.forEach(r=>{
-  const key = normalizeName(r.CustomerName);
-  boomMap[key] = true;
-});
+        if (!map.has(key)) {
+          map.set(key, {
+            rawNames: new Set(rawName ? [rawName] : []),
+            lastDate: rowDate,
+            subjects: new Set(subject ? [subject] : []),
+            actionTypes: new Set(actionType ? [actionType] : [])
+          });
+          continue;
+        }
 
-const rows = clients.map(c=>{
-  const key = normalizeName(c['Property Name']);
-  const m = marketingMap[key];
-  const d = m?.date || null;
-  const days = daysSince(d);
+        const existing = map.get(key);
+        if (rawName) existing.rawNames.add(rawName);
 
-  let status = 'No Activity';
-  if(days !== null) status = days <= 90 ? 'Fresh' : 'Stale';
+        if (rowDate && (!existing.lastDate || rowDate > existing.lastDate)) {
+          existing.lastDate = rowDate;
+          existing.subjects = new Set(subject ? [subject] : []);
+          existing.actionTypes = new Set(actionType ? [actionType] : []);
+        } else if (
+          rowDate &&
+          existing.lastDate &&
+          rowDate.getTime() === existing.lastDate.getTime()
+        ) {
+          if (subject) existing.subjects.add(subject);
+          if (actionType) existing.actionTypes.add(actionType);
+        }
+      }
 
-  return {
-    client: c['Property Name'],
-    city: c.City,
-    units: c['# of Units'],
-    last_touch: formatDate(d),
-    days,
-    status,
-    boomerang: boomMap[key] ? 'Yes' : 'No'
-  };
-});
+      return map;
+    }
 
-const summary = {
-  total_clients: rows.length,
-  fresh_count: rows.filter(r=>r.status==='Fresh').length,
-  stale_count: rows.filter(r=>r.status==='Stale').length,
-  no_activity_count: rows.filter(r=>r.status==='No Activity').length,
-  boomerang_match_count: rows.filter(r=>r.boomerang==='Yes').length
-};
+    function buildBoomerangMap(boomerangRows) {
+      const map = new Map();
 
-renderSummary(summary);
-renderTable('mainTable', rows.slice(0,50));
+      for (const row of boomerangRows) {
+        const rawName = String(row.CustomerName || '').trim();
+        const key = normalizeName(rawName);
+        if (!key) continue;
 
-document.getElementById('resultsArea').classList.remove('hidden');
+        if (!map.has(key)) {
+          map.set(key, {
+            rawNames: new Set(rawName ? [rawName] : []),
+            salesReps: new Set(),
+            rev2025: 0,
+            rev2026: 0
+          });
+        }
 
-document.getElementById('result').innerText = JSON.stringify(summary,null,2);
+        const entry = map.get(key);
+        if (rawName) entry.rawNames.add(rawName);
+        if (row.SalesRep) entry.salesReps.add(String(row.SalesRep).trim());
+        entry.rev2025 += toNumber(row['2025']);
+        entry.rev2026 += toNumber(row['2026']);
+      }
 
-} catch(err){
-  document.getElementById('result').innerText = err.message;
-}
+      return map;
+    }
 
-};
+    function buildClientPreview(clientRows, marketingMap, boomerangMap) {
+      return clientRows.map(row => {
+        const clientName = row['Property Name'] || '';
+        const key = normalizeName(clientName);
 
-</script>
+        const marketing = marketingMap.get(key);
+        const boom = boomerangMap.get(key);
+
+        const lastDate = marketing?.lastDate || null;
+        const touchDays = daysSince(lastDate);
+
+        let status = 'No Activity';
+        if (touchDays !== null) {
+          status = touchDays <= 90 ? 'Fresh' : 'Stale';
+        }
+
+        return {
+          client_name: clientName,
+          normalized_name: key,
+          address: row['Address'] || '',
+          city: row['City'] || '',
+          state: row['State'] || '',
+          zip: row['ZIP'] || '',
+          phone: row['Phone #'] || '',
+          units: toNumber(row['# of Units']),
+          current_manager: row['Current Manager'] || '',
+          management_company: row['Management Company'] || '',
+          customer_name: clientName,
+          action_type: marketing ? Array.from(marketing.actionTypes).join(' | ') : '',
+          last_marketed_date: formatDate(lastDate),
+          last_note: marketing ? Array.from(marketing.subjects).join(' | ') : '',
+          status,
+          days_since_last_touch: touchDays,
+          boomerang: boom ? 'Yes' : 'No',
+          boom_sales_rep: boom ? Array.from(boom.salesReps).join(' | ') : '',
+          boom_2025_rev: boom ? boom.rev2025 : 0,
+          boom_2026_rev: boom ? boom.rev2026 : 0
+        };
+      });
+    }
+
+    function buildDiagnostics(clientRows, marketingMap, boomerangMap) {
+      const clientKeySet = new Set(
+        clientRows
+          .map(row => normalizeName(row['Property Name']))
+          .filter(Boolean)
+      );
+
+      const unmatchedMarketing = [];
+      for (const [key, value] of marketingMap.entries()) {
+        if (!clientKeySet.has(key)) {
+          unmatchedMarketing.push({
+            normalized_name: key,
+            raw_names: Array.from(value.rawNames).join(' | '),
+            last_marketed_date: formatDate(value.lastDate),
+            action_type: Array.from(value.actionTypes).join(' | '),
+            subject: Array.from(value.subjects).join(' | ')
+          });
+        }
+      }
+
+      const unmatchedBoomerang = [];
+      for (const [key, value] of boomerangMap.entries()) {
+        if (!clientKeySet.has(key)) {
+          unmatchedBoomerang.push({
+            normalized_name: key,
+            raw_names: Array.from(value.rawNames).join(' | '),
+            sales_rep: Array.from(value.salesReps).join(' | '),
+            rev_2025: value.rev2025,
+            rev_2026: value.rev2026
+          });
+        }
+      }
+
+      return {
+        unmatched_marketing_first_25: unmatchedMarketing.slice(0, 25),
+        unmatched_boomerang_first_25: unmatchedBoomerang.slice(0, 25)
+      };
+    }
+
+    function sortPreviewRows(rows) {
+      const statusOrder = {
+        'No Activity': 0,
+        'Stale': 1,
+        'Fresh': 2
+      };
+
+      return [...rows].sort((a, b) => {
+        const statusDiff = (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99);
+        if (statusDiff !== 0) return statusDiff;
+        return (b.units || 0) - (a.units || 0);
+      });
+    }
+
+    function renderSummary(summary) {
+      summaryGrid.innerHTML = '';
+
+      const items = [
+        { label: 'Total Clients', value: summary.total_clients },
+        { label: 'Fresh Accounts', value: summary.fresh_count },
+        { label: 'Stale Accounts', value: summary.stale_count },
+        { label: 'No Activity Accounts', value: summary.no_activity_count },
+        { label: 'Boomerang Matches', value: summary.boomerang_match_count }
+      ];
+
+      items.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'summary-card';
+        card.innerHTML = `
+          <div class="summary-label">${item.label}</div>
+          <div class="summary-value">${item.value}</div>
+        `;
+        summaryGrid.appendChild(card);
+      });
+    }
+
+    function renderTable(table, emptyEl, rows, columns, rowClassFn = null) {
+      const thead = table.querySelector('thead');
+      const tbody = table.querySelector('tbody');
+
+      thead.innerHTML = '';
+      tbody.innerHTML = '';
+
+      if (!rows.length) {
+        table.classList.add('hidden');
+        emptyEl.classList.remove('hidden');
+        return;
+      }
+
+      table.classList.remove('hidden');
+      emptyEl.classList.add('hidden');
+
+      const headerRow = document.createElement('tr');
+      columns.forEach(col => {
+        const th = document.createElement('th');
+        th.textContent = col.label;
+        headerRow.appendChild(th);
+      });
+      thead.appendChild(headerRow);
+
+      rows.forEach(row => {
+        const tr = document.createElement('tr');
+
+        if (rowClassFn) {
+          tr.className = rowClassFn(row);
+        }
+
+        columns.forEach(col => {
+          const td = document.createElement('td');
+          const value = row[col.key];
+
+          if (typeof col.format === 'function') {
+            td.textContent = col.format(value, row);
+          } else {
+            td.textContent = value ?? '';
+          }
+
+          tr.appendChild(td);
+        });
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    function getStatusRowClass(row) {
+      if (row.status === 'Fresh') return 'fresh-row';
+      if (row.status === 'Stale') return 'stale-row';
+      return 'no-activity-row';
+    }
+
+    clientFiles.addEventListener('change', () => renderFileList(clientFiles, clientFilesList));
+    marketingFiles.addEventListener('change', () => renderFileList(marketingFiles, marketingFilesList));
+    boomerangFiles.addEventListener('change', () => renderFileList(boomerangFiles, boomerangFilesList));
+
+    createRunBtn.addEventListener('click', async () => {
+      result.style.display = 'block';
+      result.innerHTML = '<pre>Creating run and processing files...</pre>';
+      resultsArea.classList.add('hidden');
+
+      try {
+        const runResponse = await fetch('/.netlify/functions/create-run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            branch_code: branch.value,
+            created_by: createdBy.value
+          })
+        });
+
+        const runData = await runResponse.json();
+
+        if (!runData.ok || !runData.run?.id) {
+          result.innerHTML = `<pre>${JSON.stringify(runData, null, 2)}</pre>`;
+          return;
+        }
+
+        currentRunId = runData.run.id;
+
+        const clientRows = await readFilesFromInput(clientFiles);
+        const marketingRows = await readFilesFromInput(marketingFiles);
+        const boomerangRows = await readFilesFromInput(boomerangFiles);
+
+        const marketingMap = buildMarketingMap(marketingRows);
+        const boomerangMap = buildBoomerangMap(boomerangRows);
+        const previewRows = buildClientPreview(clientRows, marketingMap, boomerangMap);
+        const diagnostics = buildDiagnostics(clientRows, marketingMap, boomerangMap);
+
+        const summary = {
+          total_clients: previewRows.length,
+          fresh_count: previewRows.filter(x => x.status === 'Fresh').length,
+          stale_count: previewRows.filter(x => x.status === 'Stale').length,
+          no_activity_count: previewRows.filter(x => x.status === 'No Activity').length,
+          boomerang_match_count: previewRows.filter(x => x.boomerang === 'Yes').length
+        };
+
+        const saveResponse = await fetch('/.netlify/functions/save-results', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            run_id: currentRunId,
+            summary,
+            rows: previewRows
+          })
+        });
+
+        const saveData = await saveResponse.json();
+
+        if (!saveData.ok) {
+          result.innerHTML = `<pre>${JSON.stringify({
+            ok: false,
+            stage: 'save-results',
+            error: saveData.error
+          }, null, 2)}</pre>`;
+          return;
+        }
+
+        const sortedPreviewRows = sortPreviewRows(previewRows).slice(0, 50);
+
+        renderSummary(summary);
+
+        renderTable(
+          mainPreviewTable,
+          mainPreviewEmpty,
+          sortedPreviewRows,
+          [
+            { key: 'client_name', label: 'Client Name' },
+            { key: 'city', label: 'City' },
+            { key: 'state', label: 'State' },
+            { key: 'units', label: 'Units' },
+            { key: 'last_marketed_date', label: 'Last Marketed Date' },
+            { key: 'days_since_last_touch', label: 'Days Since Last Touch' },
+            { key: 'status', label: 'Status' },
+            { key: 'boomerang', label: 'Boomerang' },
+            { key: 'boom_sales_rep', label: 'Boom Sales Rep' },
+            {
+              key: 'boom_2025_rev',
+              label: 'Boom 2025 Rev',
+              format: v => `$${Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            },
+            {
+              key: 'boom_2026_rev',
+              label: 'Boom 2026 Rev',
+              format: v => `$${Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            },
+            { key: 'last_note', label: 'Last Note' }
+          ],
+          getStatusRowClass
+        );
+
+        renderTable(
+          unmatchedMarketingTable,
+          unmatchedMarketingEmpty,
+          diagnostics.unmatched_marketing_first_25,
+          [
+            { key: 'raw_names', label: 'Raw Name' },
+            { key: 'normalized_name', label: 'Normalized Name' },
+            { key: 'last_marketed_date', label: 'Last Marketed Date' },
+            { key: 'action_type', label: 'Action Type' },
+            { key: 'subject', label: 'Subject' }
+          ]
+        );
+
+        renderTable(
+          unmatchedBoomerangTable,
+          unmatchedBoomerangEmpty,
+          diagnostics.unmatched_boomerang_first_25,
+          [
+            { key: 'raw_names', label: 'Raw Name' },
+            { key: 'normalized_name', label: 'Normalized Name' },
+            { key: 'sales_rep', label: 'Sales Rep' },
+            {
+              key: 'rev_2025',
+              label: '2025 Rev',
+              format: v => `$${Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            },
+            {
+              key: 'rev_2026',
+              label: '2026 Rev',
+              format: v => `$${Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            }
+          ]
+        );
+
+        resultsArea.classList.remove('hidden');
+
+        const reportUrl = `/report.html?run_id=${currentRunId}`;
+
+        result.innerHTML = `
+          <pre>${JSON.stringify({
+            ok: true,
+            run_id: currentRunId,
+            summary,
+            saved_rows: saveData.saved_rows,
+            preview_count: sortedPreviewRows.length,
+            unmatched_marketing_count: diagnostics.unmatched_marketing_first_25.length,
+            unmatched_boomerang_count: diagnostics.unmatched_boomerang_first_25.length
+          }, null, 2)}</pre>
+          <a href="${reportUrl}" target="_blank">Open Saved Report</a>
+        `;
+      } catch (err) {
+        result.innerHTML = `<pre>${JSON.stringify({
+          ok: false,
+          error: err.message
+        }, null, 2)}</pre>`;
+      }
+    });
+  </script>
 </body>
 </html>
