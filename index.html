@@ -265,7 +265,8 @@
     const map = new Map();
 
     for (const row of marketingRows) {
-      const key = normalizeName(row.CustomerName);
+      const rawName = String(row.CustomerName || '').trim();
+      const key = normalizeName(rawName);
       if (!key) continue;
 
       const rowDate = parseDate(row.Date);
@@ -274,6 +275,7 @@
 
       if (!map.has(key)) {
         map.set(key, {
+          rawNames: new Set(rawName ? [rawName] : []),
           lastDate: rowDate,
           subjects: new Set(subject ? [subject] : []),
           actionTypes: new Set(actionType ? [actionType] : [])
@@ -282,6 +284,7 @@
       }
 
       const existing = map.get(key);
+      if (rawName) existing.rawNames.add(rawName);
 
       if (rowDate && (!existing.lastDate || rowDate > existing.lastDate)) {
         existing.lastDate = rowDate;
@@ -304,12 +307,13 @@
     const map = new Map();
 
     for (const row of boomerangRows) {
-      const key = normalizeName(row.CustomerName);
+      const rawName = String(row.CustomerName || '').trim();
+      const key = normalizeName(rawName);
       if (!key) continue;
 
       if (!map.has(key)) {
         map.set(key, {
-          matched: true,
+          rawNames: new Set(rawName ? [rawName] : []),
           salesReps: new Set(),
           rev2025: 0,
           rev2026: 0
@@ -317,6 +321,7 @@
       }
 
       const entry = map.get(key);
+      if (rawName) entry.rawNames.add(rawName);
       if (row.SalesRep) entry.salesReps.add(String(row.SalesRep).trim());
       entry.rev2025 += toNumber(row['2025']);
       entry.rev2026 += toNumber(row['2026']);
@@ -343,6 +348,7 @@
 
       return {
         client_name: clientName,
+        normalized_name: key,
         address: row['Address'] || '',
         city: row['City'] || '',
         state: row['State'] || '',
@@ -363,6 +369,45 @@
         boom_2026_rev: boom ? boom.rev2026 : 0
       };
     });
+  }
+
+  function buildDiagnostics(clientRows, marketingMap, boomerangMap) {
+    const clientKeySet = new Set(
+      clientRows
+        .map(row => normalizeName(row['Property Name']))
+        .filter(Boolean)
+    );
+
+    const unmatchedMarketing = [];
+    for (const [key, value] of marketingMap.entries()) {
+      if (!clientKeySet.has(key)) {
+        unmatchedMarketing.push({
+          normalized_name: key,
+          raw_names: Array.from(value.rawNames).join(' | '),
+          last_marketed_date: formatDate(value.lastDate),
+          action_type: Array.from(value.actionTypes).join(' | '),
+          subject: Array.from(value.subjects).join(' | ')
+        });
+      }
+    }
+
+    const unmatchedBoomerang = [];
+    for (const [key, value] of boomerangMap.entries()) {
+      if (!clientKeySet.has(key)) {
+        unmatchedBoomerang.push({
+          normalized_name: key,
+          raw_names: Array.from(value.rawNames).join(' | '),
+          sales_rep: Array.from(value.salesReps).join(' | '),
+          rev_2025: value.rev2025,
+          rev_2026: value.rev2026
+        });
+      }
+    }
+
+    return {
+      unmatched_marketing_first_25: unmatchedMarketing.slice(0, 25),
+      unmatched_boomerang_first_25: unmatchedBoomerang.slice(0, 25)
+    };
   }
 
   clientFiles.addEventListener('change', () => renderFileList(clientFiles, clientFilesList));
@@ -399,6 +444,7 @@
       const marketingMap = buildMarketingMap(marketingRows);
       const boomerangMap = buildBoomerangMap(boomerangRows);
       const previewRows = buildClientPreview(clientRows, marketingMap, boomerangMap);
+      const diagnostics = buildDiagnostics(clientRows, marketingMap, boomerangMap);
 
       const summary = {
         total_clients: previewRows.length,
@@ -408,11 +454,16 @@
         boomerang_match_count: previewRows.filter(x => x.boomerang === 'Yes').length
       };
 
+      const matchedRows = previewRows
+        .filter(x => x.status !== 'No Activity' || x.boomerang === 'Yes')
+        .slice(0, 50);
+
       result.textContent = JSON.stringify({
         ok: true,
         run_id: currentRunId,
         summary,
-        preview_first_25: previewRows.slice(0, 25)
+        matched_rows_first_50: matchedRows,
+        ...diagnostics
       }, null, 2);
 
     } catch (err) {
