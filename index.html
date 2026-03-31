@@ -12,7 +12,7 @@
       color: #1f2937;
     }
     .wrap {
-      max-width: 900px;
+      max-width: 980px;
       margin: 40px auto;
       background: #fff;
       padding: 32px;
@@ -65,12 +65,45 @@
       grid-template-columns: 1fr 1fr;
       gap: 16px;
     }
+    .upload-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 18px;
+      margin-top: 24px;
+    }
+    .upload-box {
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      padding: 18px;
+      background: #fafafa;
+    }
+    .upload-box h3 {
+      margin: 0 0 8px;
+      font-size: 18px;
+    }
+    .upload-box p {
+      margin: 0 0 12px;
+      font-size: 14px;
+    }
+    .file-list {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #374151;
+    }
+    .file-list div {
+      padding: 6px 0;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .muted {
+      color: #6b7280;
+      font-size: 13px;
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
     <h1>Sales Workbook Builder</h1>
-    <p>Create a new report run to start processing files.</p>
+    <p>Create a new report run, then upload your files.</p>
 
     <div class="row">
       <div>
@@ -90,6 +123,29 @@
     <button id="createRunBtn">Create Run</button>
 
     <div id="result" class="result" style="display:none;"></div>
+
+    <div class="upload-grid">
+      <div class="upload-box">
+        <h3>Client Files</h3>
+        <p>Upload one or more client list Excel files.</p>
+        <input id="clientFiles" type="file" multiple accept=".xls,.xlsx" />
+        <div id="clientFilesList" class="file-list muted">No files selected</div>
+      </div>
+
+      <div class="upload-box">
+        <h3>Marketing Files</h3>
+        <p>Upload one or more marketing activity Excel files.</p>
+        <input id="marketingFiles" type="file" multiple accept=".xls,.xlsx" />
+        <div id="marketingFilesList" class="file-list muted">No files selected</div>
+      </div>
+
+      <div class="upload-box">
+        <h3>Boomerang Files</h3>
+        <p>Upload one or more boomerang customer Excel files.</p>
+        <input id="boomerangFiles" type="file" multiple accept=".xls,.xlsx" />
+        <div id="boomerangFilesList" class="file-list muted">No files selected</div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -97,6 +153,34 @@
     const branch = document.getElementById('branch');
     const createdBy = document.getElementById('createdBy');
     const result = document.getElementById('result');
+
+    const clientFiles = document.getElementById('clientFiles');
+    const marketingFiles = document.getElementById('marketingFiles');
+    const boomerangFiles = document.getElementById('boomerangFiles');
+
+    const clientFilesList = document.getElementById('clientFilesList');
+    const marketingFilesList = document.getElementById('marketingFilesList');
+    const boomerangFilesList = document.getElementById('boomerangFilesList');
+
+    let currentRunId = null;
+
+    function renderFileList(input, target) {
+      const files = Array.from(input.files || []);
+      if (!files.length) {
+        target.className = 'file-list muted';
+        target.textContent = 'No files selected';
+        return;
+      }
+
+      target.className = 'file-list';
+      target.innerHTML = files
+        .map(file => `<div>${file.name} <span class="muted">(${Math.round(file.size / 1024)} KB)</span></div>`)
+        .join('');
+    }
+
+    clientFiles.addEventListener('change', () => renderFileList(clientFiles, clientFilesList));
+    marketingFiles.addEventListener('change', () => renderFileList(marketingFiles, marketingFilesList));
+    boomerangFiles.addEventListener('change', () => renderFileList(boomerangFiles, boomerangFilesList));
 
     createRunBtn.addEventListener('click', async () => {
       result.style.display = 'block';
@@ -115,6 +199,11 @@
         });
 
         const data = await response.json();
+
+        if (data.ok && data.run?.id) {
+          currentRunId = data.run.id;
+        }
+
         result.textContent = JSON.stringify(data, null, 2);
       } catch (err) {
         result.textContent = JSON.stringify({
