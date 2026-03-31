@@ -201,10 +201,26 @@
   }
 
   function parseDate(value) {
-    if (!value) return null;
-    const d = new Date(value);
-    return Number.isNaN(d.getTime()) ? null : d;
+  if (value === null || value === undefined || value === '') return null;
+
+  if (typeof value === 'number') {
+    const parsed = XLSX.SSF.parse_date_code(value);
+    if (parsed) {
+      return new Date(parsed.y, parsed.m - 1, parsed.d);
+    }
   }
+
+  const numericValue = Number(value);
+  if (!Number.isNaN(numericValue) && String(value).trim() !== '') {
+    const parsed = XLSX.SSF.parse_date_code(numericValue);
+    if (parsed) {
+      return new Date(parsed.y, parsed.m - 1, parsed.d);
+    }
+  }
+
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
 
   function formatDate(date) {
     if (!date) return '';
@@ -372,11 +388,43 @@
   }
 
   function buildDiagnostics(clientRows, marketingMap, boomerangMap) {
-    const clientKeySet = new Set(
-      clientRows
-        .map(row => normalizeName(row['Property Name']))
-        .filter(Boolean)
-    );
+  const clientKeySet = new Set(
+    clientRows
+      .map(row => normalizeName(row['Property Name']))
+      .filter(Boolean)
+  );
+
+  const unmatchedMarketing = [];
+  for (const [key, value] of marketingMap.entries()) {
+    if (!clientKeySet.has(key)) {
+      unmatchedMarketing.push({
+        normalized_name: key,
+        raw_names: Array.from(value.rawNames).join(' | '),
+        last_marketed_date: formatDate(value.lastDate),
+        action_type: Array.from(value.actionTypes).join(' | '),
+        subject: Array.from(value.subjects).join(' | ')
+      });
+    }
+  }
+
+  const unmatchedBoomerang = [];
+  for (const [key, value] of boomerangMap.entries()) {
+    if (!clientKeySet.has(key)) {
+      unmatchedBoomerang.push({
+        normalized_name: key,
+        raw_names: Array.from(value.rawNames).join(' | '),
+        sales_rep: Array.from(value.salesReps).join(' | '),
+        rev_2025: value.rev2025,
+        rev_2026: value.rev2026
+      });
+    }
+  }
+
+  return {
+    unmatched_marketing_first_25: unmatchedMarketing.slice(0, 25),
+    unmatched_boomerang_first_25: unmatchedBoomerang.slice(0, 25)
+  };
+}
 
     const unmatchedMarketing = [];
     for (const [key, value] of marketingMap.entries()) {
