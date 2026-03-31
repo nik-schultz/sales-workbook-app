@@ -148,70 +148,121 @@
     </div>
   </div>
 
-  <script>
-    const createRunBtn = document.getElementById('createRunBtn');
-    const branch = document.getElementById('branch');
-    const createdBy = document.getElementById('createdBy');
-    const result = document.getElementById('result');
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<script>
+  const createRunBtn = document.getElementById('createRunBtn');
+  const branch = document.getElementById('branch');
+  const createdBy = document.getElementById('createdBy');
+  const result = document.getElementById('result');
 
-    const clientFiles = document.getElementById('clientFiles');
-    const marketingFiles = document.getElementById('marketingFiles');
-    const boomerangFiles = document.getElementById('boomerangFiles');
+  const clientFiles = document.getElementById('clientFiles');
+  const marketingFiles = document.getElementById('marketingFiles');
+  const boomerangFiles = document.getElementById('boomerangFiles');
 
-    const clientFilesList = document.getElementById('clientFilesList');
-    const marketingFilesList = document.getElementById('marketingFilesList');
-    const boomerangFilesList = document.getElementById('boomerangFilesList');
+  const clientFilesList = document.getElementById('clientFilesList');
+  const marketingFilesList = document.getElementById('marketingFilesList');
+  const boomerangFilesList = document.getElementById('boomerangFilesList');
 
-    let currentRunId = null;
+  let currentRunId = null;
 
-    function renderFileList(input, target) {
-      const files = Array.from(input.files || []);
-      if (!files.length) {
-        target.className = 'file-list muted';
-        target.textContent = 'No files selected';
+  function renderFileList(input, target) {
+    const files = Array.from(input.files || []);
+    if (!files.length) {
+      target.className = 'file-list muted';
+      target.textContent = 'No files selected';
+      return;
+    }
+
+    target.className = 'file-list';
+    target.innerHTML = files
+      .map(file => `<div>${file.name} <span class="muted">(${Math.round(file.size / 1024)} KB)</span></div>`)
+      .join('');
+  }
+
+  async function readExcelFile(file) {
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: 'array' });
+
+    const summaries = workbook.SheetNames.map(sheetName => {
+      const sheet = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+      return {
+        sheet_name: sheetName,
+        row_count: rows.length,
+        headers: rows.length ? Object.keys(rows[0]) : []
+      };
+    });
+
+    return {
+      file_name: file.name,
+      sheet_count: workbook.SheetNames.length,
+      sheets: summaries
+    };
+  }
+
+  async function readFilesFromInput(input) {
+    const files = Array.from(input.files || []);
+    const results = [];
+
+    for (const file of files) {
+      const parsed = await readExcelFile(file);
+      results.push(parsed);
+    }
+
+    return results;
+  }
+
+  clientFiles.addEventListener('change', () => renderFileList(clientFiles, clientFilesList));
+  marketingFiles.addEventListener('change', () => renderFileList(marketingFiles, marketingFilesList));
+  boomerangFiles.addEventListener('change', () => renderFileList(boomerangFiles, boomerangFilesList));
+
+  createRunBtn.addEventListener('click', async () => {
+    result.style.display = 'block';
+    result.textContent = 'Creating run and reading files...';
+
+    try {
+      const runResponse = await fetch('/.netlify/functions/create-run', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          branch_code: branch.value,
+          created_by: createdBy.value
+        })
+      });
+
+      const runData = await runResponse.json();
+
+      if (!runData.ok || !runData.run?.id) {
+        result.textContent = JSON.stringify(runData, null, 2);
         return;
       }
 
-      target.className = 'file-list';
-      target.innerHTML = files
-        .map(file => `<div>${file.name} <span class="muted">(${Math.round(file.size / 1024)} KB)</span></div>`)
-        .join('');
+      currentRunId = runData.run.id;
+
+      const clientSummary = await readFilesFromInput(clientFiles);
+      const marketingSummary = await readFilesFromInput(marketingFiles);
+      const boomerangSummary = await readFilesFromInput(boomerangFiles);
+
+      result.textContent = JSON.stringify({
+        ok: true,
+        run_id: currentRunId,
+        branch: branch.value,
+        created_by: createdBy.value,
+        client_files: clientSummary,
+        marketing_files: marketingSummary,
+        boomerang_files: boomerangSummary
+      }, null, 2);
+
+    } catch (err) {
+      result.textContent = JSON.stringify({
+        ok: false,
+        error: err.message
+      }, null, 2);
     }
-
-    clientFiles.addEventListener('change', () => renderFileList(clientFiles, clientFilesList));
-    marketingFiles.addEventListener('change', () => renderFileList(marketingFiles, marketingFilesList));
-    boomerangFiles.addEventListener('change', () => renderFileList(boomerangFiles, boomerangFilesList));
-
-    createRunBtn.addEventListener('click', async () => {
-      result.style.display = 'block';
-      result.textContent = 'Creating run...';
-
-      try {
-        const response = await fetch('/.netlify/functions/create-run', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            branch_code: branch.value,
-            created_by: createdBy.value
-          })
-        });
-
-        const data = await response.json();
-
-        if (data.ok && data.run?.id) {
-          currentRunId = data.run.id;
-        }
-
-        result.textContent = JSON.stringify(data, null, 2);
-      } catch (err) {
-        result.textContent = JSON.stringify({
-          ok: false,
-          error: err.message
-        }, null, 2);
-      }
-    });
-  </script>
+  });
+</script>
 </body>
 </html>
