@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Saved Sales Report</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f7fb;
+      margin: 0;
+      padding: 24px;
+      color: #1f2937;
+    }
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.06);
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .summary-card {
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 16px;
+    }
+    .summary-label {
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 8px;
+    }
+    .summary-value {
+      font-size: 26px;
+      font-weight: 700;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 900px;
+    }
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #e5e7eb;
+      text-align: left;
+      font-size: 14px;
+    }
+    th {
+      background: #d9eaf7;
+    }
+    .table-wrap {
+      overflow-x: auto;
+    }
+    .fresh-row {
+      background: #c6efce;
+      color: #006100;
+    }
+    .stale-row {
+      background: #ffc7ce;
+      color: #9c0006;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Saved Sales Report</h1>
+      <p id="meta"></p>
+    </div>
+
+    <div id="summaryGrid" class="summary-grid"></div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table id="reportTable">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function getStatusRowClass(row) {
+      if (row.status === 'Fresh') return 'fresh-row';
+      if (row.status === 'Stale') return 'stale-row';
+      return '';
+    }
+
+    function renderSummary(summary) {
+      const grid = document.getElementById('summaryGrid');
+      const items = [
+        ['Total Clients', summary.total_clients],
+        ['Fresh', summary.fresh_count],
+        ['Stale', summary.stale_count],
+        ['No Activity', summary.no_activity_count],
+        ['Boomerang', summary.boomerang_match_count]
+      ];
+
+      grid.innerHTML = items.map(item => `
+        <div class="summary-card">
+          <div class="summary-label">${item[0]}</div>
+          <div class="summary-value">${item[1]}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderTable(rows) {
+      const table = document.getElementById('reportTable');
+      const thead = table.querySelector('thead');
+      const tbody = table.querySelector('tbody');
+
+      const columns = [
+        { key: 'client_name', label: 'Client Name' },
+        { key: 'city', label: 'City' },
+        { key: 'state', label: 'State' },
+        { key: 'units', label: 'Units' },
+        { key: 'last_marketed_date', label: 'Last Marketed Date' },
+        { key: 'days_since_last_touch', label: 'Days Since Last Touch' },
+        { key: 'status', label: 'Status' },
+        { key: 'boomerang', label: 'Boomerang' },
+        { key: 'boom_sales_rep', label: 'Boom Sales Rep' },
+        { key: 'boom_2025_rev', label: 'Boom 2025 Rev' },
+        { key: 'boom_2026_rev', label: 'Boom 2026 Rev' }
+      ];
+
+      thead.innerHTML = '<tr>' + columns.map(col => `<th>${col.label}</th>`).join('') + '</tr>';
+
+      tbody.innerHTML = rows.map(row => `
+        <tr class="${getStatusRowClass(row)}">
+          ${columns.map(col => `<td>${row[col.key] ?? ''}</td>`).join('')}
+        </tr>
+      `).join('');
+    }
+
+    async function loadReport() {
+      const params = new URLSearchParams(window.location.search);
+      const runId = params.get('run_id');
+
+      if (!runId) {
+        document.body.innerHTML = '<p>Missing run_id</p>';
+        return;
+      }
+
+      const res = await fetch(`/.netlify/functions/get-results?run_id=${runId}`);
+      const data = await res.json();
+
+      if (!data.ok) {
+        document.body.innerHTML = `<p>Error: ${data.error}</p>`;
+        return;
+      }
+
+      document.getElementById('meta').textContent = `Run ID: ${runId}`;
+      renderSummary(data.summary);
+      renderTable(data.rows);
+    }
+
+    loadReport();
+  </script>
+</body>
+</html>
